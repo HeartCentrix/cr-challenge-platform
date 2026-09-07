@@ -4,12 +4,11 @@
  * countdown, running against samples, scoring, the leaderboard and the ticker.
  * The visual language is untouched; only the wiring is new.
  */
+window.addEventListener('challenge-config-ready', function () {
 (function () {
   'use strict';
 
-  var API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-    ? 'http://localhost:8090/api/v1'
-    : '/api/v1';
+  var API = window.__CHALLENGE_API_BASE__ || '/api/v1';
 
   var el = function (id) { return document.getElementById(id); };
 
@@ -367,3 +366,4 @@
     });
   });
 })();
+}, { once: true });

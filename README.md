@@ -3,15 +3,27 @@
 The public challenge page, built from the supplied design
 (`hardest-java-problem-v3.html`) and wired to the real API.
 
-## Run it
+## Run it locally
 
 ```bash
 cd frontend
-python -m http.server 4200      # or: npx serve -l 4200
+npm ci
+npm start
 ```
 
-Then open <http://localhost:4200/>. The backend must be running on port 8090
-(`cd backend && mvn spring-boot:run`); it already allows CORS from localhost:4200.
+Then open <http://localhost:4200/>. The local Angular environment calls the backend at
+`http://localhost:8090/api/v1`, so run it with `cd backend && mvn spring-boot:run`.
+
+## Environments
+
+```bash
+npm run build:local   # local API: http://localhost:8090/api/v1
+npm run build:dev     # deployed API: same-origin /api/v1
+npm run build:prod    # production API: same-origin /api/v1
+```
+
+Deployed bundles intentionally contain no AWS resource addresses or direct backend,
+database, Judge0, or infrastructure URLs. CloudFront routes same-origin `/api/*` requests.
 
 Pick a specific problem with `?q=<slug>`, e.g. `?q=minimum-window-substring`.
 Tag a campaign with `?c=<name>` and it is stored on the candidate record.
@@ -46,7 +58,6 @@ Tag a campaign with `?c=<name>` and it is stored on the candidate record.
 
 ## Framework note
 
-This is plain HTML, CSS and JavaScript rather than Angular. The supplied design is a
-single vanilla page, "keep it simple" was the brief, and there is no routing or shared
-state to justify a build step yet. Nothing here blocks a later port: the API contract is
-the only coupling, and `app.js` is organised as small functions per concern.
+This is an Angular 20 standalone application. The supplied page and its visual behavior
+remain intact as public assets while Angular owns application bootstrap and environment
+selection, allowing features to migrate into Angular components incrementally.
