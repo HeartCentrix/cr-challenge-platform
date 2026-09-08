@@ -60,7 +60,12 @@ Tag a campaign with `?c=<name>` and it is stored on the candidate record.
 - **A Test Case runner was added** below the editor: pick an example input, run it, and compare
   your output against the expected one. Hidden test cases are never exposed.
 
-The candidate-facing leaderboard shows only name and rank. After submitting, candidates
+Normal page loads fetch one complete randomly selected active question in a single API request, including its prompt, starter code, and sample test cases. No question-list or follow-up detail request is needed.
+Shared `?q=slug` links load that active question directly; missing/inactive questions fall back to a random one.
+Random selection may repeat a question on subsequent loads; the daily submission limit is unchanged.
+
+The candidate-facing leaderboard shows only first name plus surname initial (e.g. **Akshat V.**)
+and rank. Full names remain internal. After submitting, candidates
 see the original badge-style modal with **Challenge submitted** and the time taken,
 using the same duration saved with the submission. Scores and grading details are never displayed.
 Every successful submission receives this confirmation; the badge makes no ranking claim.
@@ -68,7 +73,9 @@ The LinkedIn button downloads a PNG badge and opens LinkedIn sharing. Candidates
 the image and publish the post themselves. Download and sharing links remain available
 if the browser blocks the automatic action. Only the public challenge URL is shared,
 never candidate contact information or internal service addresses.
-The jobs button opens Code Report's contact form; it does not silently grant marketing consent.
+The ticket button reads **Get your free ticket for Code for Cash 2026 here!**.
+It is disabled and has no destination until further notice.
+It does not silently grant marketing consent.
 The input selector labels the available examples as **Test Case**.
 
 ## Framework note

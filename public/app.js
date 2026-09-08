@@ -80,13 +80,15 @@ function bootstrapChallenge() {
   // ------------------------------------------------------------- question
   function loadQuestion() {
     var wanted = new URLSearchParams(location.search).get('q');
-    return api('/questions').then(function (r) {
-      if (!r.ok || !r.body.length) throw new Error('no active questions');
-      var chosen = wanted
-        ? (r.body.filter(function (q) { return q.slug === wanted; })[0] || r.body[0])
-        : r.body[0];
-      return api('/questions/' + chosen.slug);
-    }).then(function (r) {
+    function randomQuestion() {
+      return api('/questions', { cache: 'no-store' });
+    }
+    var request = wanted
+      ? api('/questions/' + encodeURIComponent(wanted)).then(function (r) {
+          return r.status === 404 ? randomQuestion() : r;
+        })
+      : randomQuestion();
+    return request.then(function (r) {
       if (!r.ok) throw new Error('question not found');
       state.question = r.body;
       renderQuestion();
@@ -370,6 +372,13 @@ function bootstrapChallenge() {
   }
 
   // ---------------------------------------------------------- leaderboard
+  function leaderboardName(name) {
+    var parts = String(name || '').trim().split(/\s+/u).filter(Boolean);
+    if (!parts.length) return 'Anonymous';
+    if (parts.length === 1) return parts[0];
+    return parts[0] + ' ' + Array.from(parts[parts.length - 1])[0].toUpperCase() + '.';
+  }
+
   function loadLeaderboard() {
     api('/leaderboard?limit=5').then(function (r) {
       var host = el('leaderboardRows');
@@ -386,7 +395,7 @@ function bootstrapChallenge() {
           '<span class="board-rank"></span>'
           + '<span class="board-name"></span>';
         div.querySelector('.board-rank').textContent = String(row.rank).padStart(2, '0');
-        div.querySelector('.board-name').textContent = row.displayName;
+        div.querySelector('.board-name').textContent = leaderboardName(row.displayName);
         host.appendChild(div);
       });
     }).catch(function () { /* panel simply stays empty */ });
