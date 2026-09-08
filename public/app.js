@@ -5,15 +5,16 @@
  * The visual language is untouched; only the wiring is new.
  */
 function bootstrapChallenge() {
-  if (/^\/reset-admin-aaron(?:\/|$)/.test(location.pathname)) return;
-  if (!window.__CHALLENGE_API_BASE__ || window.__CHALLENGE_INITIALIZED__) return;
-  window.__CHALLENGE_INITIALIZED__ = true;
-(function () {
   'use strict';
 
   var API = window.__CHALLENGE_API_BASE__ || '/api/v1';
 
-  var el = function (id) { return document.getElementById(id); };
+  var portal = document.getElementById('challengePortal');
+  var el = function (id) { return portal.querySelector('#' + id); };
+  var disposed = false;
+  var requests = new AbortController();
+  var timerId = null;
+  var releaseBadge = function () {};
 
   var state = {
     question: null,
@@ -34,7 +35,7 @@ function bootstrapChallenge() {
   }
 
   function api(path, options) {
-    return fetch(API + path, options).then(function (res) {
+    return fetch(API + path, Object.assign({}, options, { signal: requests.signal })).then(function (res) {
       return res.json().catch(function () { return {}; }).then(function (body) {
         return { status: res.status, ok: res.ok, body: body };
       });
@@ -46,6 +47,12 @@ function bootstrapChallenge() {
   }
 
   // ---------------------------------------------------------------- timer
+  function stopClock() {
+    if (timerId !== null) clearInterval(timerId);
+    timerId = null;
+    state.ticking = false;
+  }
+
   function renderTimer() {
     var t = el('timer');
     if (!t || state.secondsLeft === null) return;
@@ -54,12 +61,12 @@ function bootstrapChallenge() {
   }
 
   function startClock() {
-    if (state.ticking || state.timeUp) return;
+    if (state.ticking || state.timeUp || state.submitted || disposed) return;
     state.ticking = true;
     state.startedAt = Date.now();
     var hint = el('editorHint');
     if (hint) hint.textContent = 'clock running';
-    setInterval(function () {
+    timerId = setInterval(function () {
       if (!state.submitted && state.secondsLeft > 0) {
         state.secondsLeft--;
         renderTimer();
@@ -69,6 +76,7 @@ function bootstrapChallenge() {
   }
 
   function timeUp() {
+    stopClock();
     state.timeUp = true;
     var host = el('editorHost');
     if (host) host.classList.add('locked');
@@ -126,8 +134,10 @@ function bootstrapChallenge() {
 
   // --------------------------------------------------------------- editor
   function initEditor(starterCode) {
+    if (disposed) return;
     require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
     require(['vs/editor/editor.main'], function () {
+      if (disposed) return;
       monaco.editor.defineTheme('codereport', {
         base: 'vs-dark',
         inherit: true,
@@ -260,8 +270,9 @@ function bootstrapChallenge() {
     }
 
     function refresh() {
-      reveal.disabled = state.submitting || !fieldsOk();
-      reveal.textContent = fieldsOk() ? 'Submit answer' : 'Enter your details';
+      var valid = fieldsOk();
+      reveal.disabled = state.submitting || !valid;
+      reveal.textContent = valid ? 'Submit answer' : 'Enter your details';
     }
     ['firstNameInput', 'lastNameInput', 'emailInput', 'phoneInput']
       .forEach(function (id) {
@@ -271,10 +282,14 @@ function bootstrapChallenge() {
     show(form);
     refresh();
 
-    el('badgeLogo').src = document.querySelector('.logo-img').src;
+    el('badgeLogo').src = portal.querySelector('.logo-img').src;
     // Share only the public challenge URL, never candidate details or local API URLs.
     var shareUrl = new URL('https://challenge.dev.codereport.com/');
     var badgeUrl;
+    releaseBadge = function () {
+      if (badgeUrl) URL.revokeObjectURL(badgeUrl);
+      badgeUrl = null;
+    };
     el('shareBtn').addEventListener('click', function () {
       if (!state.submitted) return;
       shareUrl.searchParams.set('q', state.question.slug);
@@ -299,6 +314,7 @@ function bootstrapChallenge() {
           }, 'image/png');
         });
       }).then(function (blob) {
+        if (disposed) return;
         badgeUrl = URL.createObjectURL(blob);
         el('downloadBadge').href = badgeUrl;
         el('downloadBadge').hidden = false;
@@ -311,8 +327,8 @@ function bootstrapChallenge() {
       });
     });
     window.addEventListener('pagehide', function (event) {
-      if (!event.persisted && badgeUrl) URL.revokeObjectURL(badgeUrl);
-    });
+      if (!event.persisted) releaseBadge();
+    }, { signal: requests.signal });
 
     function submissionError(message) {
       state.submitting = false;
@@ -358,6 +374,7 @@ function bootstrapChallenge() {
           return;
         }
         state.submitted = true;
+        stopClock();
         state.submitting = false;
         state.editor.updateOptions({ readOnly: true });
         el('editorHint').textContent = 'submission saved';
@@ -406,7 +423,7 @@ function bootstrapChallenge() {
       if (!r.ok) return;
       var t = el('ticker');
       if (t) t.textContent = Number(r.body.attempts || 0).toLocaleString();
-      var label = document.querySelector('.ticker-label');
+      var label = portal.querySelector('.ticker-label');
       if (label) label.textContent = 'submissions so far';
     }).catch(function () { /* ticker stays as-is */ });
   }
@@ -425,12 +442,16 @@ function bootstrapChallenge() {
       el('problemPrompt').textContent = 'We could not load the problem. Please refresh the page and try again.';
     });
   }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init, { once: true });
-  } else {
-    init();
-  }
-})();
+  init();
+  return function cleanupChallenge() {
+    disposed = true;
+    stopClock();
+    requests.abort();
+    releaseBadge();
+    if (state.editor) {
+      var model = state.editor.getModel();
+      state.editor.dispose();
+      if (model) model.dispose();
+    }
+  };
 }
-window.addEventListener('challenge-config-ready', bootstrapChallenge, { once: true });
-bootstrapChallenge();

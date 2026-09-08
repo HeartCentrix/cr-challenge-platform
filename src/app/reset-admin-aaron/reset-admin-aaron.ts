@@ -70,8 +70,7 @@ export class ResetAdminAaron {
         await this.router.navigateByUrl('/reset-admin-aaron/login', { replaceUrl: true });
         return;
       }
-      this.error.set(status === 401 ? 'Invalid admin email or password. Please try again.'
-        : status === 503 ? 'Admin access is unavailable. Check the backend admin database setup.'
+      this.error.set(status === 503 ? 'Admin access is unavailable. Check the backend admin database setup.'
         : status === 409 ? 'A submission is still processing. No reset was applied; try again shortly.'
         : status === 400 ? 'Check the email addresses and confirmation, then try again.'
         : 'Could not confirm the reset. Check the backend connection before trying again.');

@@ -17,5 +17,4 @@ window.__CHALLENGE_CAPTURE_BADGE__ = (element) => import('html2canvas')
   }));
 
 bootstrapApplication(App, appConfig)
-  .then(() => window.dispatchEvent(new Event('challenge-config-ready')))
   .catch((err) => console.error(err));

@@ -80,9 +80,12 @@ The input selector labels the available examples as **Test Case**.
 
 ## Framework note
 
-This is an Angular 20 standalone application. The supplied page and its visual behavior
-remain intact as public assets while Angular owns application bootstrap and environment
-selection, allowing features to migrate into Angular components incrementally.
+This is an Angular 20 standalone application. The challenge template is a lazy-loaded
+Angular component at `/`; admin login and reset pages have separate lazy routes.
+The map, Monaco loader, and challenge behavior scripts load only when the challenge
+route opens. Badge capture loads on demand when sharing. Leaving the challenge
+disposes its editor, cancels pending fetches, and stops the countdown; the countdown
+also stops on timeout or successful submission. The supplied visual design is preserved.
 
 # Local development environment
 
