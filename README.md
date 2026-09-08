@@ -90,3 +90,21 @@ Create a local development build with:
 ```powershell
 npm run build:local-dev
 ```
+
+## Admin daily-limit reset
+
+Open `http://localhost:4200/reset-admin-aaron` while running `npm run start:local-dev`.
+You are redirected to `/reset-admin-aaron/login` to sign in with the seeded admin
+account. After login, choose **One email** or **Multiple emails**, enter candidate
+email addresses, confirm the reset, then submit. **Sign out** revokes the session.
+Multiple mode accepts newlines, commas or semicolons, up to 100 emails. Passwords
+are cleared after login and never persisted. A 30-minute opaque session token is
+kept in session storage so the current tab survives refresh; the backend validates
+it before allowing entry or a reset. The page shows a result for each
+distinct normalized email. Existing submissions and scores are not deleted.
+
+Admin accounts and audit history live in the backend's separate
+`challenge_platform_admin` schema; see the backend README for local SQL setup.
+No admin link is added to the candidate-facing page. The backend authenticates
+the operation independently of the page URL. The selected Angular environment
+determines which backend is affected; use `local-dev` for the local seeded account.

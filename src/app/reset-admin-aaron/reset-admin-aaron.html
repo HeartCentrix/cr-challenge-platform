@@ -1,0 +1,41 @@
+<main>
+  <a href="/" class="back">← Back to challenge</a>
+  <section aria-labelledby="adminTitle">
+    <p class="eyebrow">CODE REPORT · ADMIN · {{ environmentName }}</p>
+    <h1 id="adminTitle">Reset daily limit</h1>
+    <p>Allow selected candidates to submit again today. Saved submissions, scores and leaderboard records are preserved.</p>
+    <p>Signed in as {{ auth.email() }}</p>
+    <button type="button" id="logoutBtn" [disabled]="busy()" (click)="logout()">Sign out</button>
+    <form #resetForm (submit)="reset($event, resetForm)">
+      <fieldset [disabled]="busy()">
+        <legend>Choose candidates</legend>
+        <div class="modes">
+          <label><input type="radio" name="mode" value="one" [checked]="mode() === 'one'" (change)="setMode('one', confirmation)"> One email</label>
+          <label><input type="radio" name="mode" value="multiple" [checked]="mode() === 'multiple'" (change)="setMode('multiple', confirmation)"> Multiple emails</label>
+        </div>
+        @if (mode() === 'one') {
+          <label for="candidateEmails">Candidate email</label>
+          <input id="candidateEmails" name="emails" type="email" maxlength="255" required autocomplete="off" (input)="confirmation.checked = false">
+        } @else {
+          <label for="candidateEmails">Candidate emails</label>
+          <textarea id="candidateEmails" name="emails" rows="6" maxlength="25600" required aria-describedby="emailHelp" (input)="confirmation.checked = false"></textarea>
+          <p id="emailHelp" class="help">One address per line, or separate with commas. Maximum 100 addresses.</p>
+        }
+        <label class="confirmation"><input #confirmation type="checkbox" name="confirmed" required> I confirm resetting today's limit for the email addresses above.</label>
+        <button type="submit">{{ busy() ? 'Resetting…' : 'Reset today’s limit' }}</button>
+      </fieldset>
+    </form>
+    @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+    @if (result(); as resetResult) {
+      <div class="results" role="status">
+        <h2>Reset results · {{ resetResult.date }}</h2>
+        <p>The date follows the backend server's daily-limit calendar. Candidates can reload the challenge page to submit again.</p>
+        <ul>
+          @for (row of resetResult.results; track row.email) {
+            <li><strong>{{ row.email }}</strong><span>{{ row.status === 'RESET' ? 'Limit reset — can submit again' : row.status === 'NO_LIMIT' ? 'No limit to reset today' : 'Candidate not found' }}</span></li>
+          }
+        </ul>
+      </div>
+    }
+  </section>
+</main>

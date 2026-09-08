@@ -5,6 +5,7 @@
  * The visual language is untouched; only the wiring is new.
  */
 function bootstrapChallenge() {
+  if (/^\/reset-admin-aaron(?:\/|$)/.test(location.pathname)) return;
   if (!window.__CHALLENGE_API_BASE__ || window.__CHALLENGE_INITIALIZED__) return;
   window.__CHALLENGE_INITIALIZED__ = true;
 (function () {

@@ -155,6 +155,8 @@
 }
 
 /* -------------------------------------------------------- submission modal */
+#challengePortal{ display: contents; }
+html:has(app-reset-admin-aaron, app-admin-login) #challengePortal{ display: none; }
 .modal-overlay{
   z-index: 30;
   overflow-y: auto;
