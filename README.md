@@ -61,3 +61,17 @@ Tag a campaign with `?c=<name>` and it is stored on the candidate record.
 This is an Angular 20 standalone application. The supplied page and its visual behavior
 remain intact as public assets while Angular owns application bootstrap and environment
 selection, allowing features to migrate into Angular components incrementally.
+
+# Local development environment
+
+Run the Angular frontend against the backend at `http://localhost:8090/api/v1`:
+
+```powershell
+npm run start:local-dev
+```
+
+Create a local development build with:
+
+```powershell
+npm run build:local-dev
+```
