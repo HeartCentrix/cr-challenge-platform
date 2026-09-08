@@ -1,5 +1,5 @@
 export const environment = {
   production: false,
   name: 'local',
-  apiBaseUrl: 'http://localhost:8090/api/v1',
+  apiBaseUrl: 'https://challenge.dev.codereport.com/api/v1',
 } as const;

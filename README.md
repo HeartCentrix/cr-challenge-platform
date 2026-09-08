@@ -11,19 +11,23 @@ npm ci
 npm start
 ```
 
-Then open <http://localhost:4200/>. The local Angular environment calls the backend at
+Then open <http://localhost:4200/>. The default `local-dev` Angular environment calls the backend at
 `http://localhost:8090/api/v1`, so run it with `cd backend && mvn spring-boot:run`.
 
 ## Environments
 
 ```bash
-npm run build:local   # local API: http://localhost:8090/api/v1
+npm run build:local-dev # local API: http://localhost:8090/api/v1
+npm run build:local   # dev API: https://challenge.dev.codereport.com/api/v1
 npm run build:dev     # deployed API: same-origin /api/v1
 npm run build:prod    # production API: same-origin /api/v1
 ```
 
 Deployed bundles intentionally contain no AWS resource addresses or direct backend,
 database, Judge0, or infrastructure URLs. CloudFront routes same-origin `/api/*` requests.
+
+Use `npm run start:local` to run the frontend locally against the full dev API URL.
+Use `npm start` or `npm run start:local-dev` to use the backend running on localhost.
 
 Pick a specific problem with `?q=<slug>`, e.g. `?q=minimum-window-substring`.
 Tag a campaign with `?c=<name>` and it is stored on the candidate record.

@@ -135,7 +135,7 @@
               "buildTarget": "challenge-platform:build:development"
             }
           },
-          "defaultConfiguration": "local"
+          "defaultConfiguration": "local-dev"
         },
         "extract-i18n": {
           "builder": "@angular/build:extract-i18n"
