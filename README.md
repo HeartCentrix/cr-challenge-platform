@@ -60,6 +60,10 @@ Tag a campaign with `?c=<name>` and it is stored on the candidate record.
 - **A sample runner was added** below the editor: pick a sample input, run it, and compare
   your output against the expected one. Hidden test cases are never exposed.
 
+The candidate-facing leaderboard shows only name and rank. After submitting, candidates
+see a saved confirmation; scores, timings, badges, and grading details are not displayed.
+The input selector labels the available examples as **Test Case**.
+
 ## Framework note
 
 This is an Angular 20 standalone application. The supplied page and its visual behavior

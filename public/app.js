@@ -73,7 +73,7 @@ function bootstrapChallenge() {
     if (host) host.classList.add('locked');
     if (state.editor) state.editor.updateOptions({ readOnly: true });
     var hint = el('editorHint');
-    if (hint) hint.textContent = "time is up - submit to see your score";
+    if (hint) hint.textContent = 'time is up - submit your answer';
   }
 
   // ------------------------------------------------------------- question
@@ -99,8 +99,7 @@ function bootstrapChallenge() {
     el('problemDifficulty').textContent = 'difficulty ' + q.difficulty + '/10';
     el('problemPrompt').textContent = q.prompt;
     el('problemMeta').textContent =
-      'One problem. ' + Math.round(q.timeLimitSeconds / 60) + ' minutes. Scored exactly the way we '
-      + 'evaluate every candidate in our network.';
+      'One problem. ' + Math.round(q.timeLimitSeconds / 60) + ' minutes. Show us how you solve it.';
 
     state.secondsLeft = q.timeLimitSeconds;
     renderTimer();
@@ -111,12 +110,12 @@ function bootstrapChallenge() {
       var opt = document.createElement('option');
       opt.value = String(i);
       var preview = (s.stdin || '').replace(/\n/g, ' · ').slice(0, 46);
-      opt.textContent = 'Sample ' + (i + 1) + ': ' + preview + '  ->  ' + s.expectedOutput.slice(0, 24);
+      opt.textContent = 'Test Case ' + (i + 1) + ': ' + preview + '  ->  ' + s.expectedOutput.slice(0, 24);
       select.appendChild(opt);
     });
     if (!(q.samples || []).length) {
       var none = document.createElement('option');
-      none.textContent = 'no sample inputs';
+      none.textContent = 'no test cases';
       select.appendChild(none);
       el('runBtn').disabled = true;
     }
@@ -208,15 +207,13 @@ function bootstrapChallenge() {
     var overlay = el('modalOverlay');
     var form = el('modalForm');
     var result = el('modalResult');
-    var fail = el('modalFail');
-    var pass = el('modalPass');
     var reveal = el('revealBtn');
     var formStatus = el('formStatus');
     var currentPanel = form;
 
     function show(which) {
       currentPanel = which;
-      [form, result, fail, pass].forEach(function (n) {
+      [form, result].forEach(function (n) {
         if (n) {
           n.classList.toggle('open', n === which);
           n.hidden = n !== which;
@@ -261,7 +258,7 @@ function bootstrapChallenge() {
 
     function refresh() {
       reveal.disabled = state.submitting || !fieldsOk();
-      reveal.textContent = fieldsOk() ? 'See my score' : 'Enter your details';
+      reveal.textContent = fieldsOk() ? 'Submit answer' : 'Enter your details';
     }
     ['firstNameInput', 'lastNameInput', 'emailInput', 'phoneInput', 'consentInput']
       .forEach(function (id) {
@@ -288,8 +285,7 @@ function bootstrapChallenge() {
       formStatus.textContent = '';
       refresh();
       show(result);
-      el('resultStatus').textContent = 'Scoring your submission against ' +
-        (state.question.samples ? 'every test case' : 'the test cases') + '...';
+      el('resultStatus').textContent = 'Submitting your answer...';
 
       api('/submit', {
         method: 'POST',
@@ -310,51 +306,21 @@ function bootstrapChallenge() {
           return;
         }
         if (!r.ok) {
-          submissionError('We could not save and score your submission. Please check your details and try again.');
+          submissionError('We could not save your submission. Please check your details and try again.');
           return;
         }
         state.submitted = true;
         state.submitting = false;
         state.editor.updateOptions({ readOnly: true });
         el('editorHint').textContent = 'submission saved';
-        renderScore(r.body, show, fail, pass);
+        el('resultStatus').textContent = 'Your submission has been saved. Thank you for taking the challenge.';
+        show(result);
+        loadLeaderboard();
+        loadStats();
       }).catch(function () {
         submissionError('We could not confirm your submission. Please try again in a moment.');
       });
     });
-  }
-
-  function renderScore(res, show, fail, pass) {
-    var perfect = res.testcasesPassed === res.testcasesTotal;
-    var pct = res.testcasesTotal ? Math.round(100 * res.testcasesPassed / res.testcasesTotal) : 0;
-    var clock = fmtClock(Math.round((res.durationMs || 0) / 1000));
-
-    var detail = '<div class="result-detail">' + res.results.map(function (o) {
-      return '<span class="' + (o.passed ? 'case-pass' : 'case-fail') + '">'
-        + (o.passed ? 'PASS' : 'FAIL') + '</span>  test case ' + o.ordinal
-        + (o.passed ? '' : '  (' + (o.status || 'failed') + ')');
-    }).join('<br>') + '</div>';
-
-    if (perfect) {
-      el('badgeScore').textContent = Math.round(res.score);
-      el('badgeTime').textContent = clock;
-      var passCopy = pass.querySelector('.badge-sub');
-      if (passCopy) passCopy.textContent = 'Verified Java Problem Solver';
-      pass.classList.add('done');
-      show(pass);
-    } else {
-      var num = fail.querySelector('.score-num');
-      if (num) num.innerHTML = pct + '<span>/100</span>';
-      var copy = fail.querySelector('.fail-copy');
-      if (copy) {
-        copy.innerHTML = 'Not in the top 5% this time - ' + res.testcasesPassed + ' of '
-          + res.testcasesTotal + ' test cases passed in ' + clock + '. A new problem drops every Monday.'
-          + detail;
-      }
-      show(fail);
-    }
-    loadLeaderboard();
-    loadStats();
   }
 
   // ---------------------------------------------------------- leaderboard
@@ -367,14 +333,13 @@ function bootstrapChallenge() {
         host.innerHTML = '<div class="board-empty">No solves yet. Be the first.</div>';
         return;
       }
-      r.body.forEach(function (row, i) {
+      r.body.forEach(function (row) {
         var div = document.createElement('div');
         div.className = 'board-row';
         div.innerHTML =
-          '<span class="board-rank">' + String(i + 1).padStart(2, '0') + '</span>'
-          + '<span class="board-name"></span>'
-          + '<span class="board-time">' + Math.round(row.totalScore) + '</span>'
-          + (row.testcasesCleared ? '<span class="board-badge">' + row.testcasesCleared + ' cases</span>' : '');
+          '<span class="board-rank"></span>'
+          + '<span class="board-name"></span>';
+        div.querySelector('.board-rank').textContent = String(row.rank).padStart(2, '0');
         div.querySelector('.board-name').textContent = row.displayName;
         host.appendChild(div);
       });
@@ -387,7 +352,7 @@ function bootstrapChallenge() {
       var t = el('ticker');
       if (t) t.textContent = Number(r.body.attempts || 0).toLocaleString();
       var label = document.querySelector('.ticker-label');
-      if (label) label.textContent = 'submissions scored so far';
+      if (label) label.textContent = 'submissions so far';
     }).catch(function () { /* ticker stays as-is */ });
   }
 
