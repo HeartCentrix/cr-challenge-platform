@@ -169,7 +169,8 @@
     padding: 11px 16px;
     border-bottom: 1px solid var(--line);
   }
-  .editor-bar span{
+  .editor-bar .editor-dot{
+    flex-shrink: 0;
     width: 9px; height: 9px;
     border-radius: 50%;
     background: var(--line);

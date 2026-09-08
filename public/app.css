@@ -51,8 +51,18 @@
 .problem-prompt::-webkit-scrollbar-thumb{ background: #202020; border-radius: 4px; }
 
 /* ----------------------------------------------------------------- editor */
+.editor-bar{
+  flex-wrap: wrap;
+}
+.editor-filename{
+  white-space: nowrap;
+}
 .editor-hint{
   margin-left: auto;
+  min-width: 0;
+  max-width: 100%;
+  text-align: right;
+  line-height: 1.5;
   font-family: var(--mono);
   font-size: 10.5px;
   color: var(--text-dim);
@@ -133,6 +143,15 @@
   white-space: pre-wrap;
   max-height: 200px;
   overflow-y: auto;
+}
+
+/* ---------------------------------------------------------- submit button */
+#submitBtn{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-block: 32px;
+  line-height: 1.5;
 }
 
 /* ---------------------------------------------------------------- consent */
