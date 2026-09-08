@@ -4,7 +4,9 @@
  * countdown, running against samples, scoring, the leaderboard and the ticker.
  * The visual language is untouched; only the wiring is new.
  */
-window.addEventListener('challenge-config-ready', function () {
+function bootstrapChallenge() {
+  if (!window.__CHALLENGE_API_BASE__ || window.__CHALLENGE_INITIALIZED__) return;
+  window.__CHALLENGE_INITIALIZED__ = true;
 (function () {
   'use strict';
 
@@ -19,7 +21,8 @@ window.addEventListener('challenge-config-ready', function () {
     secondsLeft: null,
     ticking: false,
     timeUp: false,
-    submitted: false
+    submitted: false,
+    submitting: false
   };
 
   // ------------------------------------------------------------------ util
@@ -56,7 +59,7 @@ window.addEventListener('challenge-config-ready', function () {
     var hint = el('editorHint');
     if (hint) hint.textContent = 'clock running';
     setInterval(function () {
-      if (state.secondsLeft > 0) {
+      if (!state.submitted && state.secondsLeft > 0) {
         state.secondsLeft--;
         renderTimer();
         if (state.secondsLeft === 0) timeUp();
@@ -208,32 +211,56 @@ window.addEventListener('challenge-config-ready', function () {
     var fail = el('modalFail');
     var pass = el('modalPass');
     var reveal = el('revealBtn');
+    var formStatus = el('formStatus');
+    var currentPanel = form;
 
     function show(which) {
-      [form, result, fail, pass].forEach(function (n) { if (n) n.classList.remove('active'); });
-      if (which) which.classList.add('active');
+      currentPanel = which;
+      [form, result, fail, pass].forEach(function (n) {
+        if (n) {
+          n.classList.toggle('open', n === which);
+          n.hidden = n !== which;
+        }
+      });
     }
 
     function openModal() {
-      if (state.submitted) { show(pass && pass.classList.contains('done') ? pass : fail); }
-      else { show(form); }
-      overlay.classList.add('active');
+      show(currentPanel);
+      overlay.classList.add('open');
+      el('modalClose').focus();
     }
 
-    function closeModal() { overlay.classList.remove('active'); }
+    function closeModal() {
+      overlay.classList.remove('open');
+      el('submitBtn').focus();
+    }
 
     el('submitBtn').addEventListener('click', function (e) { e.preventDefault(); openModal(); });
     el('modalClose').addEventListener('click', closeModal);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
+    overlay.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeModal();
+      if (e.key === 'Tab') {
+        var focusable = Array.from(overlay.querySelectorAll('button:not(:disabled), input:not(:disabled), a[href]'))
+          .filter(function (node) { return node.getClientRects().length; });
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
 
     function fieldsOk() {
       return el('firstNameInput').value.trim() && el('lastNameInput').value.trim()
         && el('emailInput').value.trim() && el('phoneInput').value.trim()
-        && el('consentInput').checked;
+        && el('consentInput').checked
+        && ['firstNameInput', 'lastNameInput', 'emailInput', 'phoneInput'].every(function (id) {
+          return el(id).checkValidity();
+        });
     }
 
     function refresh() {
-      reveal.disabled = !fieldsOk();
+      reveal.disabled = state.submitting || !fieldsOk();
       reveal.textContent = fieldsOk() ? 'See my score' : 'Enter your details';
     }
     ['firstNameInput', 'lastNameInput', 'emailInput', 'phoneInput', 'consentInput']
@@ -241,10 +268,25 @@ window.addEventListener('challenge-config-ready', function () {
         el(id).addEventListener('input', refresh);
         el(id).addEventListener('change', refresh);
       });
+    show(form);
     refresh();
 
+    function submissionError(message) {
+      state.submitting = false;
+      formStatus.textContent = message;
+      show(form);
+      refresh();
+    }
+
     reveal.addEventListener('click', function () {
-      if (!fieldsOk()) return;
+      if (state.submitting || state.submitted || !fieldsOk()) return;
+      if (!state.question || !state.editor || !sourceCode().trim()) {
+        formStatus.textContent = 'Wait for the problem to load and enter your code before submitting.';
+        return;
+      }
+      state.submitting = true;
+      formStatus.textContent = '';
+      refresh();
       show(result);
       el('resultStatus').textContent = 'Scoring your submission against ' +
         (state.question.samples ? 'every test case' : 'the test cases') + '...';
@@ -264,20 +306,20 @@ window.addEventListener('challenge-config-ready', function () {
         })
       }).then(function (r) {
         if (r.status === 429) {
-          el('resultStatus').innerHTML = 'You have already submitted today.'
-            + '<div class="notice">One attempt per person per day. Come back tomorrow.</div>';
+          submissionError('You have already submitted today. Come back tomorrow.');
           return;
         }
         if (!r.ok) {
-          el('resultStatus').innerHTML = 'We could not score that submission.'
-            + '<div class="notice">' + (r.body.error || 'Please try again.') + '</div>';
+          submissionError('We could not save and score your submission. Please check your details and try again.');
           return;
         }
         state.submitted = true;
+        state.submitting = false;
+        state.editor.updateOptions({ readOnly: true });
+        el('editorHint').textContent = 'submission saved';
         renderScore(r.body, show, fail, pass);
       }).catch(function () {
-        el('resultStatus').innerHTML = 'We could not reach the scoring service.'
-          + '<div class="notice">Please try again in a moment.</div>';
+        submissionError('We could not confirm your submission. Please try again in a moment.');
       });
     });
   }
@@ -350,7 +392,7 @@ window.addEventListener('challenge-config-ready', function () {
   }
 
   // ------------------------------------------------------------------ init
-  document.addEventListener('DOMContentLoaded', function () {
+  function init() {
     el('runBtn').addEventListener('click', runSample);
     wireModal();
     loadLeaderboard();
@@ -360,10 +402,15 @@ window.addEventListener('challenge-config-ready', function () {
       initEditor(q.starterCode);
     }).catch(function () {
       el('problemTitle').textContent = 'Could not load the problem';
-      el('problemPrompt').textContent =
-        'The API at ' + API + ' is not responding.\n\nStart the backend with:\n'
-        + '  cd backend && mvn spring-boot:run';
+      el('problemPrompt').textContent = 'We could not load the problem. Please refresh the page and try again.';
     });
-  });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
 })();
-}, { once: true });
+}
+window.addEventListener('challenge-config-ready', bootstrapChallenge, { once: true });
+bootstrapChallenge();

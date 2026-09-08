@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <base href="/">
-<title>Only 5% of Java Developers Can Solve This — Code Report</title>
+<title>Challendge-CodeReport</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -64,7 +65,7 @@
     </div>
     <pre class="run-output" id="runOutput" hidden></pre>
 
-    <a class="cta" href="#" id="submitBtn">Submit answer</a>
+    <button class="cta" type="button" id="submitBtn" aria-haspopup="dialog" aria-controls="modalOverlay">Submit answer</button>
 
     <div class="ticker-block">
       <div class="ticker" id="ticker">--</div>
@@ -120,22 +121,23 @@
   </section>
 
   <div class="modal-overlay" id="modalOverlay">
-    <div class="modal">
-      <button class="modal-close" id="modalClose">&times;</button>
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Submit your answer">
+      <button class="modal-close" id="modalClose" aria-label="Close submission dialog">&times;</button>
 
       <div class="modal-body" id="modalForm">
         <h2>Enter your details to see your score</h2>
         <p>We'll send your result here and reach out directly if you land in the top 5%.</p>
         <div class="name-row">
-          <input type="text" id="firstNameInput" placeholder="First name">
-          <input type="text" id="lastNameInput" placeholder="Last name">
+          <input type="text" id="firstNameInput" placeholder="First name" aria-label="First name" maxlength="74" required>
+          <input type="text" id="lastNameInput" placeholder="Last name" aria-label="Last name" maxlength="75" required>
         </div>
-        <input type="email" id="emailInput" placeholder="Email address">
-        <input type="tel" id="phoneInput" placeholder="Phone number">
+        <input type="email" id="emailInput" placeholder="Email address" aria-label="Email address" maxlength="255" required>
+        <input type="tel" id="phoneInput" placeholder="Phone number" aria-label="Phone number" minlength="7" maxlength="32" required>
         <label class="consent-row">
           <input type="checkbox" id="consentInput">
           <span>You may contact me about roles and future problems.</span>
         </label>
+        <p id="formStatus" class="notice" role="status"></p>
         <button class="modal-submit" id="revealBtn" disabled>Enter your details</button>
       </div>
 

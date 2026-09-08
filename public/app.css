@@ -155,6 +155,15 @@
 }
 
 /* ---------------------------------------------------------------- consent */
+.modal-overlay{
+  z-index: 30;
+  overflow-y: auto;
+}
+.modal{
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+}
+.modal-body[hidden]{ display: none; }
 .consent-row{
   display: flex;
   align-items: flex-start;
@@ -167,7 +176,7 @@
   cursor: pointer;
   text-align: left;
 }
-.consent-row input{
+.modal-body .consent-row input{
   width: auto;
   margin: 2px 0 0;
   accent-color: var(--amber);
