@@ -207,13 +207,14 @@ function bootstrapChallenge() {
     var overlay = el('modalOverlay');
     var form = el('modalForm');
     var result = el('modalResult');
+    var success = el('modalPass');
     var reveal = el('revealBtn');
     var formStatus = el('formStatus');
     var currentPanel = form;
 
     function show(which) {
       currentPanel = which;
-      [form, result].forEach(function (n) {
+      [form, result, success].forEach(function (n) {
         if (n) {
           n.classList.toggle('open', n === which);
           n.hidden = n !== which;
@@ -250,7 +251,6 @@ function bootstrapChallenge() {
     function fieldsOk() {
       return el('firstNameInput').value.trim() && el('lastNameInput').value.trim()
         && el('emailInput').value.trim() && el('phoneInput').value.trim()
-        && el('consentInput').checked
         && ['firstNameInput', 'lastNameInput', 'emailInput', 'phoneInput'].every(function (id) {
           return el(id).checkValidity();
         });
@@ -260,13 +260,56 @@ function bootstrapChallenge() {
       reveal.disabled = state.submitting || !fieldsOk();
       reveal.textContent = fieldsOk() ? 'Submit answer' : 'Enter your details';
     }
-    ['firstNameInput', 'lastNameInput', 'emailInput', 'phoneInput', 'consentInput']
+    ['firstNameInput', 'lastNameInput', 'emailInput', 'phoneInput']
       .forEach(function (id) {
         el(id).addEventListener('input', refresh);
         el(id).addEventListener('change', refresh);
       });
     show(form);
     refresh();
+
+    el('badgeLogo').src = document.querySelector('.logo-img').src;
+    // Share only the public challenge URL, never candidate details or local API URLs.
+    var shareUrl = new URL('https://challenge.dev.codereport.com/');
+    var badgeUrl;
+    el('shareBtn').addEventListener('click', function () {
+      if (!state.submitted) return;
+      shareUrl.searchParams.set('q', state.question.slug);
+      var linkedInUrl = 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(shareUrl.href);
+      el('linkedInShare').href = linkedInUrl;
+      el('shareActions').hidden = false;
+      // Open during the click event so popup blockers do not reject an async open.
+      window.open(linkedInUrl, '_blank', 'noopener,noreferrer');
+      if (badgeUrl) {
+        el('downloadBadge').click();
+        return;
+      }
+      el('shareBtn').disabled = true;
+      el('shareStatus').textContent = 'Preparing your badge...';
+      Promise.resolve().then(function () {
+        return window.__CHALLENGE_CAPTURE_BADGE__(el('badgeCard'));
+      }).then(function (canvas) {
+        return new Promise(function (resolve, reject) {
+          canvas.toBlob(function (blob) {
+            if (blob) resolve(blob);
+            else reject(new Error('Badge image unavailable'));
+          }, 'image/png');
+        });
+      }).then(function (blob) {
+        badgeUrl = URL.createObjectURL(blob);
+        el('downloadBadge').href = badgeUrl;
+        el('downloadBadge').hidden = false;
+        el('downloadBadge').click();
+        el('shareStatus').textContent = 'Attach the downloaded badge to your LinkedIn post. If LinkedIn did not open, use the link below.';
+      }).catch(function () {
+        el('shareStatus').textContent = 'Could not create the badge image. Try again, or use Open LinkedIn to share the challenge link.';
+      }).finally(function () {
+        el('shareBtn').disabled = false;
+      });
+    });
+    window.addEventListener('pagehide', function (event) {
+      if (!event.persisted && badgeUrl) URL.revokeObjectURL(badgeUrl);
+    });
 
     function submissionError(message) {
       state.submitting = false;
@@ -282,6 +325,8 @@ function bootstrapChallenge() {
         return;
       }
       state.submitting = true;
+      // Use the exact duration sent to the database; exclude the grading wait.
+      var submittedDurationMs = elapsedMs();
       formStatus.textContent = '';
       refresh();
       show(result);
@@ -296,8 +341,8 @@ function bootstrapChallenge() {
           fullName: el('firstNameInput').value.trim() + ' ' + el('lastNameInput').value.trim(),
           email: el('emailInput').value.trim(),
           phone: el('phoneInput').value.trim(),
-          consent: true,
-          durationMs: elapsedMs(),
+          consent: false,
+          durationMs: submittedDurationMs,
           sourceCampaign: new URLSearchParams(location.search).get('c') || 'direct'
         })
       }).then(function (r) {
@@ -313,8 +358,8 @@ function bootstrapChallenge() {
         state.submitting = false;
         state.editor.updateOptions({ readOnly: true });
         el('editorHint').textContent = 'submission saved';
-        el('resultStatus').textContent = 'Your submission has been saved. Thank you for taking the challenge.';
-        show(result);
+        el('badgeTime').textContent = fmtClock(Math.floor(submittedDurationMs / 1000));
+        show(success);
         loadLeaderboard();
         loadStats();
       }).catch(function () {

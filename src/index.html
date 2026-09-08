@@ -107,16 +107,31 @@
         </div>
         <input type="email" id="emailInput" placeholder="Email address" aria-label="Email address" maxlength="255" required>
         <input type="tel" id="phoneInput" placeholder="Phone number" aria-label="Phone number" minlength="7" maxlength="32" required>
-        <label class="consent-row">
-          <input type="checkbox" id="consentInput">
-          <span>You may contact me about roles and future problems.</span>
-        </label>
         <p id="formStatus" class="notice" role="status"></p>
         <button class="modal-submit" id="revealBtn" disabled>Enter your details</button>
       </div>
 
       <div class="modal-body modal-result" id="modalResult">
-        <div class="result-status" id="resultStatus">Scoring your submission...</div>
+        <div class="result-status" id="resultStatus" role="status">Submitting your answer...</div>
+      </div>
+
+      <div class="modal-body modal-pass" id="modalPass" hidden>
+        <div class="badge-card" id="badgeCard">
+          <img class="badge-logo" id="badgeLogo" alt="Code Report">
+          <div class="badge-tier">Challenge submitted</div>
+          <div class="badge-sub">Java Coding Challenge</div>
+          <div class="badge-stats">
+            <div><span id="badgeTime">0:00</span><label>time taken</label></div>
+          </div>
+        </div>
+        <p class="pass-copy" role="status">Your submission has been saved. Thank you for taking the challenge.</p>
+        <a class="modal-submit" id="claimBtn" href="https://www.codereport.com/contactus" target="_blank" rel="noopener noreferrer">Contact me for job opportunities</a>
+        <button type="button" class="modal-submit ghost" id="shareBtn">Share your badge on LinkedIn</button>
+        <p class="notice" id="shareStatus" role="status"></p>
+        <div class="share-actions" id="shareActions" hidden>
+          <a id="downloadBadge" download="code-report-challenge-badge.png" hidden>Download badge</a>
+          <a id="linkedInShare" target="_blank" rel="noopener noreferrer">Open LinkedIn</a>
+        </div>
       </div>
 
     </div>

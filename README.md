@@ -38,7 +38,7 @@ Tag a campaign with `?c=<name>` and it is stored on the candidate record.
 |-------------------------|----------------------------------------------------------------|
 | `index.html`            | The page. Generated from the design by surgical replacement, so the marquee, logo, timer, map, modal and footer are the originals |
 | `styles.css`            | The design's stylesheet, verbatim                              |
-| `app.css`               | Additions for the parts the mockup did not have: problem panel, real editor, sample runner, consent row |
+| `app.css`               | Additions for the problem panel, real editor, Test Case runner and submission controls |
 | `app.js`                | All live behaviour: question loading, editor, countdown, run, submit, leaderboard, ticker |
 | `map.js`                | The US activity map, lifted unchanged. Decorative - the dot grid comes from state boundaries, not live geo data |
 | `design-reference.html` | The original mockup, untouched, for visual comparison          |
@@ -53,15 +53,22 @@ Tag a campaign with `?c=<name>` and it is stored on the candidate record.
 - **The countdown starts on the first keystroke,** as the mockup's own comment said it
   should in production. It runs from the question's `timeLimitSeconds`, not a fixed 8:00.
   At zero the editor locks and the page invites a submission.
-- **A consent checkbox was added** to the lead form. The API rejects a submission without
-  it, and collecting contact details for follow-up without consent is not defensible.
+- **Submissions do not opt candidates into marketing contact.** The form has no contact
+  consent checkbox and sends `consent: false`.
 - **The leaderboard and ticker are live.** Both fall back silently to the design's static
   content if the API is unreachable, so the page never renders broken.
-- **A sample runner was added** below the editor: pick a sample input, run it, and compare
+- **A Test Case runner was added** below the editor: pick an example input, run it, and compare
   your output against the expected one. Hidden test cases are never exposed.
 
 The candidate-facing leaderboard shows only name and rank. After submitting, candidates
-see a saved confirmation; scores, timings, badges, and grading details are not displayed.
+see the original badge-style modal with **Challenge submitted** and the time taken,
+using the same duration saved with the submission. Scores and grading details are never displayed.
+Every successful submission receives this confirmation; the badge makes no ranking claim.
+The LinkedIn button downloads a PNG badge and opens LinkedIn sharing. Candidates attach
+the image and publish the post themselves. Download and sharing links remain available
+if the browser blocks the automatic action. Only the public challenge URL is shared,
+never candidate contact information or internal service addresses.
+The jobs button opens Code Report's contact form; it does not silently grant marketing consent.
 The input selector labels the available examples as **Test Case**.
 
 ## Framework note

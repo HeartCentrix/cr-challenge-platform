@@ -154,7 +154,7 @@
   line-height: 1.5;
 }
 
-/* ---------------------------------------------------------------- consent */
+/* -------------------------------------------------------- submission modal */
 .modal-overlay{
   z-index: 30;
   overflow-y: auto;
@@ -164,6 +164,16 @@
   overflow-y: auto;
 }
 .modal-body[hidden]{ display: none; }
+.modal a.modal-submit{
+  display: block;
+  box-sizing: border-box;
+  text-align: center;
+  text-decoration: none;
+}
+.badge-tier{ font-size: clamp(22px, 5vw, 30px); }
+.share-actions{ display: flex; justify-content: center; gap: 18px; font-size: 12px; }
+.share-actions[hidden], .share-actions a[hidden]{ display: none; }
+.share-actions a{ color: var(--amber); }
 .consent-row{
   display: flex;
   align-items: flex-start;
