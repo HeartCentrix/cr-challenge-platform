@@ -1,31 +1,41 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Router } from '@angular/router';
-import { AdminAuth } from './admin-auth';
+import { ActivatedRoute, Router } from '@angular/router';
+import { AdminAuth, safeAdminReturnUrl } from './admin-auth';
 import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-admin-login',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  styleUrl: '../reset-admin-aaron/reset-admin-aaron.css',
+  styleUrl: './admin-login.css',
   template: `
-    <main>
-      <a href="/" class="back">Back to challenge</a>
-      <section aria-labelledby="loginTitle">
-        <p class="eyebrow">CODE REPORT · ADMIN · {{ environmentName }}</p>
-        <h1 id="loginTitle">Admin login</h1>
-        <p>Sign in to manage the daily submission limit.</p>
-        <form #loginForm (submit)="login($event, loginForm, password)">
-          <fieldset [disabled]="busy()">
-            <legend>Admin credentials</legend>
-            <label for="adminEmail">Email</label>
-            <input id="adminEmail" name="email" type="email" required maxlength="255" autocomplete="username">
-            <label for="adminPassword">Password</label>
-            <input #password id="adminPassword" type="password" required maxlength="72" autocomplete="current-password">
-            <button type="submit">{{ busy() ? 'Signing in...' : 'Sign in' }}</button>
-          </fieldset>
-        </form>
-        @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+    <main class="signin-layout">
+      <section class="intro" aria-labelledby="welcomeTitle">
+        <a href="/" class="brand"><img src="/assets/codereport-dark.png" alt="CodeReport"></a>
+        <div class="intro-content">
+          <img class="illustration" src="/assets/tsp-signin-illustration.png" alt="" width="459" height="281">
+          <h1 id="welcomeTitle">Great talent.<br>Clear insights.</h1>
+          <p>Explore challenge performance and discover the people behind the code.</p>
+        </div>
+      </section>
+      <section class="login-panel" aria-labelledby="loginTitle">
+        <div class="content">
+          <p class="eyebrow">CHALLENGE PORTAL · ADMIN</p>
+          <h2 id="loginTitle">Sign In</h2>
+          <p class="description">Sign in to explore candidate statistics, challenge performance, and submission details.</p>
+          <form #loginForm (submit)="login($event, loginForm, password)" [attr.aria-busy]="busy()">
+            <fieldset [disabled]="busy()">
+              <legend class="sr-only">Admin credentials</legend>
+              <label for="adminEmail">Email Address</label>
+              <input id="adminEmail" name="email" type="email" required maxlength="255" autocomplete="username" placeholder="you@codereport.com">
+              <label for="adminPassword">Password</label>
+              <input #password id="adminPassword" type="password" required maxlength="72" autocomplete="current-password" placeholder="Enter your password">
+              <div class="signin-actions"><a href="/" class="back">Back to challenge</a><button type="submit">{{ busy() ? 'Signing in…' : 'Sign in' }} <span aria-hidden="true">→</span></button></div>
+            </fieldset>
+          </form>
+          @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+          <p class="access-note">Authorized admins only <span>· {{ environmentName }}</span></p>
+        </div>
       </section>
     </main>
   `,
@@ -33,6 +43,7 @@ import { environment } from '../../environments/environment';
 export class AdminLogin {
   private readonly auth = inject(AdminAuth);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   readonly environmentName = environment.name;
   readonly busy = signal(false);
   readonly error = signal('');
@@ -47,7 +58,8 @@ export class AdminLogin {
     this.error.set('');
     try {
       await this.auth.login(email, value);
-      await this.router.navigateByUrl('/reset-admin-aaron', { replaceUrl: true });
+      const fallback = this.route.snapshot.data['destination'] || '/reset-admin-aria';
+      await this.router.navigateByUrl(safeAdminReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl'), fallback), { replaceUrl: true });
     } catch (error) {
       this.error.set(error instanceof HttpErrorResponse && error.status === 401
         ? 'Invalid email or password.' : 'Unable to sign in. Check the backend connection and try again.');

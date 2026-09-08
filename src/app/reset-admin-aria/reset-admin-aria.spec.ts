@@ -1,15 +1,15 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { ResetAdminAaron } from './reset-admin-aaron';
+import { ResetAdminAria } from './reset-admin-aria';
 import { environment } from '../../environments/environment';
 import { signal } from '@angular/core';
 import { AdminAuth } from '../admin-auth/admin-auth';
 import { Router } from '@angular/router';
 
-describe('ResetAdminAaron', () => {
+describe('ResetAdminAria', () => {
   beforeEach(() => TestBed.configureTestingModule({
-    imports: [ResetAdminAaron],
+    imports: [ResetAdminAria],
     providers: [provideHttpClient(), provideHttpClientTesting(),
       { provide: AdminAuth, useValue: { headers: { Authorization: 'Bearer test-token' }, email: signal('admin@example.invalid'), clear: jasmine.createSpy('clear') } },
       { provide: Router, useValue: { navigateByUrl: jasmine.createSpy('navigateByUrl').and.resolveTo(true) } },
@@ -18,7 +18,7 @@ describe('ResetAdminAaron', () => {
   afterEach(() => TestBed.inject(HttpTestingController).verify());
 
   function setup(multiple = false) {
-    const fixture = TestBed.createComponent(ResetAdminAaron);
+    const fixture = TestBed.createComponent(ResetAdminAria);
     if (multiple) fixture.componentInstance.mode.set('multiple');
     fixture.detectChanges();
     const form: HTMLFormElement = fixture.nativeElement.querySelector('form');
@@ -59,7 +59,7 @@ describe('ResetAdminAaron', () => {
     request.flush({}, { status: 401, statusText: 'Unauthorized' });
     await pending;
     expect(TestBed.inject(AdminAuth).clear).toHaveBeenCalled();
-    expect(TestBed.inject(Router).navigateByUrl).toHaveBeenCalledWith('/reset-admin-aaron/login', { replaceUrl: true });
+    expect(TestBed.inject(Router).navigateByUrl).toHaveBeenCalledWith('/reset-admin-aria/login', { replaceUrl: true });
     expect(fixture.componentInstance.result()).toBeNull();
     expect(fixture.componentInstance.busy()).toBeFalse();
   });

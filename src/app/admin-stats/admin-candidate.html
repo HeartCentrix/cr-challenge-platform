@@ -1,0 +1,68 @@
+<app-admin-nav />
+<main>
+  <a routerLink="/stats-admin">← Back to candidate statistics</a>
+  <div class="detail-date-filter"><span>Report day</span><app-date-range [singleDay]="true" [value]="range()" (changed)="setDay($event)" /><span class="muted">Time zone: {{ time.zone }}</span></div>
+  @if (!validId()) { <p class="error" role="alert">Invalid candidate ID.</p> }
+  @if (candidate.isLoading()) { <p role="status">Loading candidate details...</p> }
+  @if (candidate.error(); as error) { <p class="error" role="alert">{{ api.message(error) }} <button type="button" (click)="candidate.reload()">Retry</button></p> }
+  @if (candidate.hasValue()) {
+    <section aria-labelledby="candidateTitle">
+      <div class="heading"><div><p class="eyebrow">CANDIDATE #{{ candidate.value().id }}</p><h1 id="candidateTitle">{{ candidate.value().fullName || 'Unnamed candidate' }}</h1></div><button type="button" (click)="exportReport()" [disabled]="candidate.isLoading() || !!candidate.error() || !candidate.value().attempts.total || exporter.busy()" title="Download a formatted Excel workbook for the selected day, including code and test-case results">Export Excel report</button></div>
+      @if (exporter.progress()) { <div class="export-status" role="status">{{ exporter.progress() }} @if (exporter.busy()) { <button type="button" (click)="exporter.cancel()">Cancel export</button> }</div> }
+      @if (exporter.error()) { <p class="error" role="alert">{{ exporter.error() }}</p> }
+      <p class="time-zone">Time zone: {{ time.zone }} · 24-hour clock · elapsed durations are unchanged</p>
+      <h2>Contact &amp; acquisition</h2>
+      <dl class="info">
+        <div><dt>Email</dt><dd>{{ candidate.value().email }}</dd></div><div><dt>Phone</dt><dd>{{ candidate.value().phone }}</dd></div>
+        <div><dt>First seen</dt><dd>{{ time.format(candidate.value().firstSeenAt) }}</dd></div><div><dt>Last seen</dt><dd>{{ time.format(candidate.value().lastSeenAt) }}</dd></div>
+        <div><dt>Acquisition campaign</dt><dd>{{ candidate.value().sourceCampaign || 'Not recorded' }} @if (candidate.value().sourceCampaign === 'direct') { <small class="muted">(no campaign tag)</small> }</dd></div>
+        <div><dt>Marketing consent</dt><dd>{{ candidate.value().consented ? 'Yes' : 'No' }}</dd></div>
+      </dl>
+      <h2 class="section-label">Performance for {{ day() }}</h2><dl class="info performance-info">
+        <div><dt>Total submissions</dt><dd>{{ candidate.value().attempts.total }}</dd></div>
+        <div><dt>Day score</dt><dd>{{ candidate.value().performance.totalScore | number:'1.0-2' }}</dd></div>
+        <div><dt>Average submission score</dt><dd>{{ candidate.value().performance.averageScore | number:'1.0-2' }}</dd></div>
+        <div><dt>Day test cases passed</dt><dd>{{ candidate.value().performance.testcasesPassed }}/{{ candidate.value().performance.testcasesTotal }}</dd></div>
+        <div><dt>Day pass rate</dt><dd>{{ candidate.value().performance.passPercentage === null ? 'N/A' : (candidate.value().performance.passPercentage | number:'1.0-2') + '%' }}</dd></div>
+      </dl>
+    </section>
+    <section aria-labelledby="historyTitle"><h2 id="historyTitle">Challenge history · {{ day() }}</h2><p>Only submissions on the selected local day. Newest first. Select an attempt to see its full details.</p>
+      <div class="attempts">@for (item of candidate.value().attempts.items; track item.id) {
+        <button type="button" [class.selected]="selectedAttempt() === item.id" [attr.aria-pressed]="selectedAttempt() === item.id" (click)="selectedAttempt.set(item.id)">
+          #{{ item.id }} · {{ item.title }} · {{ item.testcasesPassed }}/{{ item.testcasesTotal }} · {{ time.format(item.submittedAt) }}</button>
+      } @empty { <p>No submissions on {{ day() }}. Choose another day to view or export results.</p> }</div>
+      <div class="pagination"><span>Page {{ page() + 1 }}</span><button type="button" [disabled]="page() === 0 || candidate.isLoading()" (click)="page.set(page() - 1)">Previous attempts</button>
+        <button type="button" [disabled]="(page() + 1) * 10 >= candidate.value().attempts.total || candidate.isLoading()" (click)="page.set(page() + 1)">Next attempts</button></div>
+    </section>
+    @if (attempt.isLoading()) { <p role="status">Loading full challenge details...</p> }
+    @if (attempt.error(); as error) { <p class="error" role="alert">{{ api.message(error) }} <button type="button" (click)="attempt.reload()">Retry</button></p> }
+    @if (attempt.hasValue() && !attempt.isLoading()) {
+      <section aria-labelledby="attemptTitle"><p class="eyebrow">ATTEMPT #{{ attempt.value().summary.id }}</p><h2 id="attemptTitle">{{ attempt.value().summary.title }}</h2>
+        <dl class="info">
+          <div><dt>Submitted</dt><dd>{{ time.format(attempt.value().summary.submittedAt) }}</dd></div>
+          <div><dt>Language</dt><dd>{{ attempt.value().summary.language }}</dd></div>
+          <div><dt>Time taken</dt><dd>{{ duration(attempt.value().summary.durationMs) }}</dd></div>
+          <div><dt>Test cases passed</dt><dd>{{ attempt.value().summary.testcasesPassed }}/{{ attempt.value().summary.testcasesTotal }}</dd></div>
+          <div><dt>Pass rate</dt><dd>{{ attempt.value().summary.passPercentage === null ? 'N/A' : (attempt.value().summary.passPercentage | number:'1.0-2') + '%' }}</dd></div>
+          <div><dt>Total score</dt><dd>{{ attempt.value().summary.score | number:'1.0-2' }}</dd></div>
+          <div><dt>Speed bonus (included in score)</dt><dd>{{ attempt.value().summary.speedBonus | number:'1.0-2' }}</dd></div>
+          <div><dt>Last test-case judge status</dt><dd>{{ attempt.value().summary.judgeStatus || 'Not recorded' }}</dd></div>
+        </dl>
+        <h3>Problem statement</h3><p class="muted">Question content reflects the current question bank; submission code and results are saved attempt records.</p><pre>{{ attempt.value().prompt }}</pre>
+        <p>Difficulty: {{ attempt.value().difficulty }}/10 · Time limit: {{ attempt.value().timeLimitSeconds }} seconds</p>
+        <h3>Submitted code</h3><pre id="submittedCode">{{ attempt.value().sourceCode }}</pre>
+        <details><summary>Starter code</summary><pre>{{ attempt.value().starterCode }}</pre></details>
+        <details><summary>Reference solution · admin only</summary><pre>{{ attempt.value().referenceSolution }}</pre></details>
+        <details><summary>Submission metadata</summary><dl class="info"><div><dt>IP address</dt><dd>{{ attempt.value().ipAddress || 'Not recorded' }}</dd></div><div><dt>User agent</dt><dd>{{ attempt.value().userAgent || 'Not recorded' }}</dd></div></dl></details>
+      </section>
+      <section aria-labelledby="testcasesTitle"><h2 id="testcasesTitle">Test-case results</h2>
+        @for (test of attempt.value().testcases; track test.id) {
+          <details><summary><span [class.pass]="test.passed === true" [class.fail]="test.passed === false">Test Case {{ test.ordinal }} · {{ test.passed === true ? 'Passed' : test.passed === false ? 'Failed' : 'Not recorded' }}</span> · {{ test.sample ? 'Public' : 'Hidden' }}</summary>
+            <p>{{ test.judgeStatus || 'No status recorded' }} · Runtime: {{ test.execTimeMs === null ? 'N/A' : test.execTimeMs + ' ms' }} · Memory: {{ test.memoryKb === null ? 'N/A' : test.memoryKb + ' KB' }}</p>
+            <div class="case-grid"><div><h3>Input</h3><pre>{{ test.stdin ?? '(not recorded)' }}</pre></div><div><h3>Expected output</h3><pre>{{ test.expectedOutput ?? '(not recorded)' }}</pre></div><div><h3>Candidate output</h3><pre>{{ test.stdout ?? '(not recorded)' }}</pre></div></div>
+          </details>
+        } @empty { <p>No saved per-test-case results are available for this attempt.</p> }
+      </section>
+    }
+  }
+</main>

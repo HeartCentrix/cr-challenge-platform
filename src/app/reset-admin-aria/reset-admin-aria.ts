@@ -11,12 +11,12 @@ interface ResetResult {
 }
 
 @Component({
-  selector: 'app-reset-admin-aaron',
-  templateUrl: './reset-admin-aaron.html',
-  styleUrl: './reset-admin-aaron.css',
+  selector: 'app-reset-admin-aria',
+  templateUrl: './reset-admin-aria.html',
+  styleUrl: './reset-admin-aria.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ResetAdminAaron {
+export class ResetAdminAria {
   private readonly http = inject(HttpClient);
   readonly auth = inject(AdminAuth);
   private readonly router = inject(Router);
@@ -39,7 +39,7 @@ export class ResetAdminAaron {
     try {
       await this.auth.logout();
     } catch { /* local session is cleared even if the server is unreachable */ }
-    await this.router.navigateByUrl('/reset-admin-aaron/login', { replaceUrl: true });
+    await this.router.navigateByUrl('/reset-admin-aria/login', { replaceUrl: true });
     this.busy.set(false);
   }
 
@@ -67,7 +67,7 @@ export class ResetAdminAaron {
       const status = error instanceof HttpErrorResponse ? error.status : 0;
       if (status === 401) {
         this.auth.clear();
-        await this.router.navigateByUrl('/reset-admin-aaron/login', { replaceUrl: true });
+        await this.router.navigateByUrl('/reset-admin-aria/login', { replaceUrl: true });
         return;
       }
       this.error.set(status === 503 ? 'Admin access is unavailable. Check the backend admin database setup.'
