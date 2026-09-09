@@ -92,6 +92,17 @@
               "sourceMap": false,
               "outputHashing": "all"
             },
+            "local-dev": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.local-dev.ts"
+                }
+              ],
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            },
             "local": {
               "optimization": false,
               "extractLicenses": false,
@@ -108,6 +119,9 @@
         "serve": {
           "builder": "@angular/build:dev-server",
           "configurations": {
+            "local-dev": {
+              "buildTarget": "challenge-platform:build:local-dev"
+            },
             "local": {
               "buildTarget": "challenge-platform:build:local"
             },
@@ -121,7 +135,7 @@
               "buildTarget": "challenge-platform:build:development"
             }
           },
-          "defaultConfiguration": "local"
+          "defaultConfiguration": "local-dev"
         },
         "extract-i18n": {
           "builder": "@angular/build:extract-i18n"

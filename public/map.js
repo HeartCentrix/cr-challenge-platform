@@ -8,7 +8,7 @@ const CITY_COORDS = [[828.3,194.7],[124.7,329.1],[611.6,171.2],[488.5,415.8],[22
   // Real continental-US state outlines + an accurate land-based dot grid
   // (derived from actual state boundary data, not hand-drawn). A subset of
   // dots near major metro areas glow to represent recent attempts.
-  (function buildUsaMap(){
+  window.buildChallengeMap = function buildUsaMap(){
     const svg = document.getElementById('usaMap');
     const ns = 'http://www.w3.org/2000/svg';
 
@@ -49,4 +49,4 @@ const CITY_COORDS = [[828.3,194.7],[124.7,329.1],[611.6,171.2],[488.5,415.8],[22
     });
     dotsGroup.appendChild(frag);
     svg.appendChild(dotsGroup);
-  })();
+  };

@@ -1,0 +1,66 @@
+<app-admin-nav />
+<main>
+  <div class="heading">
+    <div><p class="eyebrow">CHALLENGE INSIGHTS</p><h1>Candidate statistics</h1><p class="time-zone">Time zone: {{ time.zone }} · 24-hour clock</p></div>
+    <div class="totals" aria-label="Statistics for the selected filters">
+      <div><span>Candidates</span><strong id="totalCandidates">{{ overview.value()?.totalCandidates ?? '—' }}</strong></div>
+      <div><span>Submissions</span><strong>{{ overview.value()?.totalAttempts ?? '—' }}</strong></div>
+      <div title="Mean of each candidate’s average submission score"><span>Avg candidate score</span><strong>{{ overview.hasValue() ? (overview.value().averageCandidateScore | number:'1.0-2') : '—' }}</strong></div>
+    </div>
+  </div>
+  <div class="workspace" #layout [class.collapsed]="collapsed()" [class.expanded]="expanded()" [class.dragging]="dragging()" [style.--panel-width]="panelWidth() + 'px'">
+    <section class="candidate-panel" aria-labelledby="candidatesTitle">
+      <div class="candidate-toolbar">
+        <div class="table-title"><h2 id="candidatesTitle">Candidates <span>{{ total() }}</span></h2><div class="export-actions"><app-date-range [value]="range()" (changed)="setRange($event)" /><button type="button" (click)="exportTable()" [disabled]="!loaded() || loading() || !!error() || !rows().length || exporter.busy()" title="Export all candidates matching the applied filters">Export Excel</button></div></div>
+        @if (exporter.progress()) { <div class="export-status" role="status">{{ exporter.progress() }} @if (exporter.busy()) { <button type="button" (click)="exporter.cancel()">Cancel export</button> }</div> }
+        @if (exporter.error()) { <p class="error" role="alert">{{ exporter.error() }}</p> }
+        <form class="filters" (submit)="applyFilters($event, searchInput, minInput, maxInput, campaignInput)">
+          <label class="search"><span class="sr-only">Search name, email or phone</span><input #searchInput type="search" placeholder="Search name, email or phone" maxlength="255" [value]="search()"></label>
+          <label class="campaign-filter"><span class="sr-only">Campaign tag (exact match)</span><input #campaignInput type="search" placeholder="Campaign, e.g. direct" maxlength="255" [value]="campaign()" title="Exact campaign tag; leave empty for all campaigns"></label>
+          <div class="percent-filter"><span>Pass rate</span><label><span class="sr-only">Minimum pass percentage</span><input #minInput type="number" min="0" max="100" step="any" required [value]="minPercent()"></label><span>–</span><label><span class="sr-only">Maximum pass percentage</span><input #maxInput type="number" min="0" max="100" step="any" required [value]="maxPercent()"></label><span>%</span></div>
+          <button type="submit">Apply</button>
+          @if (search() || campaign() || range().startDate || minPercent() !== '0' || maxPercent() !== '100' || bucket() !== 'all') { <button type="button" (click)="clearFilters()">Clear</button> }
+        </form>
+        @if (filterError()) { <p class="error" role="alert">{{ filterError() }}</p> }
+        @if (bucket() !== 'all') { <button class="filter-chip" type="button" (click)="selectBucket('all')">Pass rate: {{ label() }} ×</button> }
+      </div>
+      <div #viewport class="table-scroll" tabindex="0" role="region" aria-label="Candidate table, scroll for more candidates" [attr.aria-busy]="loading()" (scroll)="fillViewport()">
+        <table><thead><tr><th scope="col">Candidate</th><th scope="col">Contact</th><th scope="col">Campaign</th><th scope="col">Challenges</th><th scope="col">Submissions</th><th scope="col">Test cases</th><th scope="col">Pass rate</th><th scope="col">Total score</th><th scope="col">Avg score</th><th scope="col">Total time</th><th scope="col">Last submission</th></tr></thead>
+          <tbody>
+            @for (row of rows(); track row.id) {
+              <tr tabindex="0" [attr.aria-label]="'View ' + row.fullName + ' challenge details'" (click)="openCandidate($event, row.id)" (keydown.enter)="openCandidate($event, row.id)">
+                <td><a [routerLink]="['/stats-admin/candidates', row.id]">{{ row.fullName || 'Unnamed candidate' }}</a><small>#{{ row.id }}</small></td>
+                <td>{{ row.email }}<small>{{ row.phone || 'No phone' }}</small></td>
+                <td>{{ row.sourceCampaign || 'Not recorded' }}</td>
+                <td>{{ row.performance.questionsAttempted }}</td><td>{{ row.performance.attemptCount }}</td>
+                <td>{{ row.performance.testcasesPassed }}/{{ row.performance.testcasesTotal }}</td>
+                <td><span class="pass-rate">{{ row.performance.passPercentage === null ? 'N/A' : (row.performance.passPercentage | number:'1.0-2') + '%' }}</span></td>
+                <td>{{ row.performance.totalScore | number:'1.0-2' }}</td><td class="average-score">{{ row.performance.averageScore | number:'1.0-2' }}</td>
+                <td>{{ duration(row.performance.durationMs) }}</td><td>{{ time.date(row.performance.lastSubmittedAt) }}<small>{{ time.clock(row.performance.lastSubmittedAt) }}</small></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        @if (loading()) { <p class="empty" role="status">Loading candidates…</p> }
+        @else if (error(); as error) { <p class="error" role="alert">{{ api.message(error) }} <button type="button" (click)="loadMore()">Retry</button></p> }
+        @else if (!rows().length) { <p class="empty">No candidates match these filters.</p> }
+      </div>
+      <footer class="table-footer"><span>{{ rows().length }} of {{ total() }} candidates</span><span>{{ nextCursor() !== null ? 'Scroll to load more' : 'All matching candidates loaded' }}</span></footer>
+    </section>
+    @if (expanded()) { <div class="glass-backdrop" (click)="panelWidth.set(320)" aria-hidden="true"></div> }
+    @if (collapsed()) {
+      <button class="expand-panel" type="button" (click)="togglePanel()" (pointerdown)="startExpand($event)" (pointermove)="expandDrag($event)" (pointerup)="endResize()" (pointercancel)="endResize()" aria-label="Open performance breakdown" aria-expanded="false"><span class="grip"></span><span>Breakdown</span></button>
+    }
+      <aside class="breakdown-panel" aria-labelledby="breakdownTitle" [attr.inert]="collapsed() ? '' : null" [attr.aria-hidden]="collapsed()">
+        <div class="resize-handle" role="separator" tabindex="0" aria-label="Resize performance panel; drag narrower than the default width to collapse" aria-orientation="vertical" aria-valuemin="320" [attr.aria-valuemax]="layout.clientWidth - 32 < 320 ? 320 : layout.clientWidth - 32" [attr.aria-valuenow]="panelWidth()"
+          (pointerdown)="startResize($event)" (pointermove)="resize($event)" (pointerup)="endResize()" (pointercancel)="endResize()" (lostpointercapture)="endResize()" (keydown)="resizeKey($event)"><span></span></div>
+        <div class="panel-heading"><div><p class="eyebrow">PERFORMANCE</p><h2 id="breakdownTitle">Test-case breakdown</h2></div></div>
+        <div class="chart-scroll">
+          @if (overview.isLoading()) { <p role="status" class="empty">Loading breakdown…</p> }
+          @else if (overview.error(); as error) { <p class="error" role="alert">{{ api.message(error) }} <button type="button" (click)="overview.reload()">Retry</button></p> }
+          @else if (overview.hasValue()) { <app-stats-chart [buckets]="overview.value().buckets" [selected]="bucket()" (selectedBucket)="selectBucket($event)" /> }
+        </div>
+        <p class="resize-note">Drag left edge to resize · shrink past default to collapse</p>
+      </aside>
+  </div>
+</main>

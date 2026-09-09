@@ -4,13 +4,17 @@
  * countdown, running against samples, scoring, the leaderboard and the ticker.
  * The visual language is untouched; only the wiring is new.
  */
-window.addEventListener('challenge-config-ready', function () {
-(function () {
+function bootstrapChallenge() {
   'use strict';
 
   var API = window.__CHALLENGE_API_BASE__ || '/api/v1';
 
-  var el = function (id) { return document.getElementById(id); };
+  var portal = document.getElementById('challengePortal');
+  var el = function (id) { return portal.querySelector('#' + id); };
+  var disposed = false;
+  var requests = new AbortController();
+  var timerId = null;
+  var releaseBadge = function () {};
 
   var state = {
     question: null,
@@ -19,7 +23,8 @@ window.addEventListener('challenge-config-ready', function () {
     secondsLeft: null,
     ticking: false,
     timeUp: false,
-    submitted: false
+    submitted: false,
+    submitting: false
   };
 
   // ------------------------------------------------------------------ util
@@ -30,7 +35,7 @@ window.addEventListener('challenge-config-ready', function () {
   }
 
   function api(path, options) {
-    return fetch(API + path, options).then(function (res) {
+    return fetch(API + path, Object.assign({}, options, { signal: requests.signal })).then(function (res) {
       return res.json().catch(function () { return {}; }).then(function (body) {
         return { status: res.status, ok: res.ok, body: body };
       });
@@ -42,6 +47,12 @@ window.addEventListener('challenge-config-ready', function () {
   }
 
   // ---------------------------------------------------------------- timer
+  function stopClock() {
+    if (timerId !== null) clearInterval(timerId);
+    timerId = null;
+    state.ticking = false;
+  }
+
   function renderTimer() {
     var t = el('timer');
     if (!t || state.secondsLeft === null) return;
@@ -50,13 +61,13 @@ window.addEventListener('challenge-config-ready', function () {
   }
 
   function startClock() {
-    if (state.ticking || state.timeUp) return;
+    if (state.ticking || state.timeUp || state.submitted || disposed) return;
     state.ticking = true;
     state.startedAt = Date.now();
     var hint = el('editorHint');
     if (hint) hint.textContent = 'clock running';
-    setInterval(function () {
-      if (state.secondsLeft > 0) {
+    timerId = setInterval(function () {
+      if (!state.submitted && state.secondsLeft > 0) {
         state.secondsLeft--;
         renderTimer();
         if (state.secondsLeft === 0) timeUp();
@@ -65,24 +76,27 @@ window.addEventListener('challenge-config-ready', function () {
   }
 
   function timeUp() {
+    stopClock();
     state.timeUp = true;
     var host = el('editorHost');
     if (host) host.classList.add('locked');
     if (state.editor) state.editor.updateOptions({ readOnly: true });
     var hint = el('editorHint');
-    if (hint) hint.textContent = "time is up - submit to see your score";
+    if (hint) hint.textContent = 'time is up - submit your answer';
   }
 
   // ------------------------------------------------------------- question
   function loadQuestion() {
     var wanted = new URLSearchParams(location.search).get('q');
-    return api('/questions').then(function (r) {
-      if (!r.ok || !r.body.length) throw new Error('no active questions');
-      var chosen = wanted
-        ? (r.body.filter(function (q) { return q.slug === wanted; })[0] || r.body[0])
-        : r.body[0];
-      return api('/questions/' + chosen.slug);
-    }).then(function (r) {
+    function randomQuestion() {
+      return api('/questions', { cache: 'no-store' });
+    }
+    var request = wanted
+      ? api('/questions/' + encodeURIComponent(wanted)).then(function (r) {
+          return r.status === 404 ? randomQuestion() : r;
+        })
+      : randomQuestion();
+    return request.then(function (r) {
       if (!r.ok) throw new Error('question not found');
       state.question = r.body;
       renderQuestion();
@@ -96,8 +110,7 @@ window.addEventListener('challenge-config-ready', function () {
     el('problemDifficulty').textContent = 'difficulty ' + q.difficulty + '/10';
     el('problemPrompt').textContent = q.prompt;
     el('problemMeta').textContent =
-      'One problem. ' + Math.round(q.timeLimitSeconds / 60) + ' minutes. Scored exactly the way we '
-      + 'evaluate every candidate in our network.';
+      'One problem. ' + Math.round(q.timeLimitSeconds / 60) + ' minutes. Show us how you solve it.';
 
     state.secondsLeft = q.timeLimitSeconds;
     renderTimer();
@@ -108,12 +121,12 @@ window.addEventListener('challenge-config-ready', function () {
       var opt = document.createElement('option');
       opt.value = String(i);
       var preview = (s.stdin || '').replace(/\n/g, ' · ').slice(0, 46);
-      opt.textContent = 'Sample ' + (i + 1) + ': ' + preview + '  ->  ' + s.expectedOutput.slice(0, 24);
+      opt.textContent = 'Test Case ' + (i + 1) + ': ' + preview + '  ->  ' + s.expectedOutput.slice(0, 24);
       select.appendChild(opt);
     });
     if (!(q.samples || []).length) {
       var none = document.createElement('option');
-      none.textContent = 'no sample inputs';
+      none.textContent = 'no test cases';
       select.appendChild(none);
       el('runBtn').disabled = true;
     }
@@ -121,8 +134,10 @@ window.addEventListener('challenge-config-ready', function () {
 
   // --------------------------------------------------------------- editor
   function initEditor(starterCode) {
+    if (disposed) return;
     require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
     require(['vs/editor/editor.main'], function () {
+      if (disposed) return;
       monaco.editor.defineTheme('codereport', {
         base: 'vs-dark',
         inherit: true,
@@ -205,49 +220,136 @@ window.addEventListener('challenge-config-ready', function () {
     var overlay = el('modalOverlay');
     var form = el('modalForm');
     var result = el('modalResult');
-    var fail = el('modalFail');
-    var pass = el('modalPass');
+    var success = el('modalPass');
     var reveal = el('revealBtn');
+    var formStatus = el('formStatus');
+    var currentPanel = form;
 
     function show(which) {
-      [form, result, fail, pass].forEach(function (n) { if (n) n.classList.remove('active'); });
-      if (which) which.classList.add('active');
+      currentPanel = which;
+      [form, result, success].forEach(function (n) {
+        if (n) {
+          n.classList.toggle('open', n === which);
+          n.hidden = n !== which;
+        }
+      });
     }
 
     function openModal() {
-      if (state.submitted) { show(pass && pass.classList.contains('done') ? pass : fail); }
-      else { show(form); }
-      overlay.classList.add('active');
+      show(currentPanel);
+      overlay.classList.add('open');
+      el('modalClose').focus();
     }
 
-    function closeModal() { overlay.classList.remove('active'); }
+    function closeModal() {
+      overlay.classList.remove('open');
+      el('submitBtn').focus();
+    }
 
     el('submitBtn').addEventListener('click', function (e) { e.preventDefault(); openModal(); });
     el('modalClose').addEventListener('click', closeModal);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
+    overlay.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeModal();
+      if (e.key === 'Tab') {
+        var focusable = Array.from(overlay.querySelectorAll('button:not(:disabled), input:not(:disabled), a[href]'))
+          .filter(function (node) { return node.getClientRects().length; });
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
 
     function fieldsOk() {
       return el('firstNameInput').value.trim() && el('lastNameInput').value.trim()
         && el('emailInput').value.trim() && el('phoneInput').value.trim()
-        && el('consentInput').checked;
+        && ['firstNameInput', 'lastNameInput', 'emailInput', 'phoneInput'].every(function (id) {
+          return el(id).checkValidity();
+        });
     }
 
     function refresh() {
-      reveal.disabled = !fieldsOk();
-      reveal.textContent = fieldsOk() ? 'See my score' : 'Enter your details';
+      var valid = fieldsOk();
+      reveal.disabled = state.submitting || !valid;
+      reveal.textContent = valid ? 'Submit answer' : 'Enter your details';
     }
-    ['firstNameInput', 'lastNameInput', 'emailInput', 'phoneInput', 'consentInput']
+    ['firstNameInput', 'lastNameInput', 'emailInput', 'phoneInput']
       .forEach(function (id) {
         el(id).addEventListener('input', refresh);
         el(id).addEventListener('change', refresh);
       });
+    show(form);
     refresh();
 
+    el('badgeLogo').src = portal.querySelector('.logo-img').src;
+    // Share only the public challenge URL, never candidate details or local API URLs.
+    var shareUrl = new URL('https://challenge.dev.codereport.com/');
+    var badgeUrl;
+    releaseBadge = function () {
+      if (badgeUrl) URL.revokeObjectURL(badgeUrl);
+      badgeUrl = null;
+    };
+    el('shareBtn').addEventListener('click', function () {
+      if (!state.submitted) return;
+      shareUrl.searchParams.set('q', state.question.slug);
+      var linkedInUrl = 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(shareUrl.href);
+      el('linkedInShare').href = linkedInUrl;
+      el('shareActions').hidden = false;
+      // Open during the click event so popup blockers do not reject an async open.
+      window.open(linkedInUrl, '_blank', 'noopener,noreferrer');
+      if (badgeUrl) {
+        el('downloadBadge').click();
+        return;
+      }
+      el('shareBtn').disabled = true;
+      el('shareStatus').textContent = 'Preparing your badge...';
+      Promise.resolve().then(function () {
+        return window.__CHALLENGE_CAPTURE_BADGE__(el('badgeCard'));
+      }).then(function (canvas) {
+        return new Promise(function (resolve, reject) {
+          canvas.toBlob(function (blob) {
+            if (blob) resolve(blob);
+            else reject(new Error('Badge image unavailable'));
+          }, 'image/png');
+        });
+      }).then(function (blob) {
+        if (disposed) return;
+        badgeUrl = URL.createObjectURL(blob);
+        el('downloadBadge').href = badgeUrl;
+        el('downloadBadge').hidden = false;
+        el('downloadBadge').click();
+        el('shareStatus').textContent = 'Attach the downloaded badge to your LinkedIn post. If LinkedIn did not open, use the link below.';
+      }).catch(function () {
+        el('shareStatus').textContent = 'Could not create the badge image. Try again, or use Open LinkedIn to share the challenge link.';
+      }).finally(function () {
+        el('shareBtn').disabled = false;
+      });
+    });
+    window.addEventListener('pagehide', function (event) {
+      if (!event.persisted) releaseBadge();
+    }, { signal: requests.signal });
+
+    function submissionError(message) {
+      state.submitting = false;
+      formStatus.textContent = message;
+      show(form);
+      refresh();
+    }
+
     reveal.addEventListener('click', function () {
-      if (!fieldsOk()) return;
+      if (state.submitting || state.submitted || !fieldsOk()) return;
+      if (!state.question || !state.editor || !sourceCode().trim()) {
+        formStatus.textContent = 'Wait for the problem to load and enter your code before submitting.';
+        return;
+      }
+      state.submitting = true;
+      // Use the exact duration sent to the database; exclude the grading wait.
+      var submittedDurationMs = elapsedMs();
+      formStatus.textContent = '';
+      refresh();
       show(result);
-      el('resultStatus').textContent = 'Scoring your submission against ' +
-        (state.question.samples ? 'every test case' : 'the test cases') + '...';
+      el('resultStatus').textContent = 'Submitting your answer...';
 
       api('/submit', {
         method: 'POST',
@@ -258,64 +360,42 @@ window.addEventListener('challenge-config-ready', function () {
           fullName: el('firstNameInput').value.trim() + ' ' + el('lastNameInput').value.trim(),
           email: el('emailInput').value.trim(),
           phone: el('phoneInput').value.trim(),
-          consent: true,
-          durationMs: elapsedMs(),
+          consent: false,
+          durationMs: submittedDurationMs,
           sourceCampaign: new URLSearchParams(location.search).get('c') || 'direct'
         })
       }).then(function (r) {
         if (r.status === 429) {
-          el('resultStatus').innerHTML = 'You have already submitted today.'
-            + '<div class="notice">One attempt per person per day. Come back tomorrow.</div>';
+          submissionError('You have already submitted today. Come back tomorrow.');
           return;
         }
         if (!r.ok) {
-          el('resultStatus').innerHTML = 'We could not score that submission.'
-            + '<div class="notice">' + (r.body.error || 'Please try again.') + '</div>';
+          submissionError('We could not save your submission. Please check your details and try again.');
           return;
         }
         state.submitted = true;
-        renderScore(r.body, show, fail, pass);
+        stopClock();
+        state.submitting = false;
+        state.editor.updateOptions({ readOnly: true });
+        el('editorHint').textContent = 'submission saved';
+        el('badgeTime').textContent = fmtClock(Math.floor(submittedDurationMs / 1000));
+        show(success);
+        loadLeaderboard();
+        loadStats();
       }).catch(function () {
-        el('resultStatus').innerHTML = 'We could not reach the scoring service.'
-          + '<div class="notice">Please try again in a moment.</div>';
+        submissionError('We could not confirm your submission. Please try again in a moment.');
       });
     });
   }
 
-  function renderScore(res, show, fail, pass) {
-    var perfect = res.testcasesPassed === res.testcasesTotal;
-    var pct = res.testcasesTotal ? Math.round(100 * res.testcasesPassed / res.testcasesTotal) : 0;
-    var clock = fmtClock(Math.round((res.durationMs || 0) / 1000));
-
-    var detail = '<div class="result-detail">' + res.results.map(function (o) {
-      return '<span class="' + (o.passed ? 'case-pass' : 'case-fail') + '">'
-        + (o.passed ? 'PASS' : 'FAIL') + '</span>  test case ' + o.ordinal
-        + (o.passed ? '' : '  (' + (o.status || 'failed') + ')');
-    }).join('<br>') + '</div>';
-
-    if (perfect) {
-      el('badgeScore').textContent = Math.round(res.score);
-      el('badgeTime').textContent = clock;
-      var passCopy = pass.querySelector('.badge-sub');
-      if (passCopy) passCopy.textContent = 'Verified Java Problem Solver';
-      pass.classList.add('done');
-      show(pass);
-    } else {
-      var num = fail.querySelector('.score-num');
-      if (num) num.innerHTML = pct + '<span>/100</span>';
-      var copy = fail.querySelector('.fail-copy');
-      if (copy) {
-        copy.innerHTML = 'Not in the top 5% this time - ' + res.testcasesPassed + ' of '
-          + res.testcasesTotal + ' test cases passed in ' + clock + '. A new problem drops every Monday.'
-          + detail;
-      }
-      show(fail);
-    }
-    loadLeaderboard();
-    loadStats();
+  // ---------------------------------------------------------- leaderboard
+  function leaderboardName(name) {
+    var parts = String(name || '').trim().split(/\s+/u).filter(Boolean);
+    if (!parts.length) return 'Anonymous';
+    if (parts.length === 1) return parts[0];
+    return parts[0] + ' ' + Array.from(parts[parts.length - 1])[0].toUpperCase() + '.';
   }
 
-  // ---------------------------------------------------------- leaderboard
   function loadLeaderboard() {
     api('/leaderboard?limit=5').then(function (r) {
       var host = el('leaderboardRows');
@@ -325,15 +405,14 @@ window.addEventListener('challenge-config-ready', function () {
         host.innerHTML = '<div class="board-empty">No solves yet. Be the first.</div>';
         return;
       }
-      r.body.forEach(function (row, i) {
+      r.body.forEach(function (row) {
         var div = document.createElement('div');
         div.className = 'board-row';
         div.innerHTML =
-          '<span class="board-rank">' + String(i + 1).padStart(2, '0') + '</span>'
-          + '<span class="board-name"></span>'
-          + '<span class="board-time">' + Math.round(row.totalScore) + '</span>'
-          + (row.testcasesCleared ? '<span class="board-badge">' + row.testcasesCleared + ' cases</span>' : '');
-        div.querySelector('.board-name').textContent = row.displayName;
+          '<span class="board-rank"></span>'
+          + '<span class="board-name"></span>';
+        div.querySelector('.board-rank').textContent = String(row.rank).padStart(2, '0');
+        div.querySelector('.board-name').textContent = leaderboardName(row.displayName);
         host.appendChild(div);
       });
     }).catch(function () { /* panel simply stays empty */ });
@@ -344,13 +423,13 @@ window.addEventListener('challenge-config-ready', function () {
       if (!r.ok) return;
       var t = el('ticker');
       if (t) t.textContent = Number(r.body.attempts || 0).toLocaleString();
-      var label = document.querySelector('.ticker-label');
-      if (label) label.textContent = 'submissions scored so far';
+      var label = portal.querySelector('.ticker-label');
+      if (label) label.textContent = 'submissions so far';
     }).catch(function () { /* ticker stays as-is */ });
   }
 
   // ------------------------------------------------------------------ init
-  document.addEventListener('DOMContentLoaded', function () {
+  function init() {
     el('runBtn').addEventListener('click', runSample);
     wireModal();
     loadLeaderboard();
@@ -360,10 +439,19 @@ window.addEventListener('challenge-config-ready', function () {
       initEditor(q.starterCode);
     }).catch(function () {
       el('problemTitle').textContent = 'Could not load the problem';
-      el('problemPrompt').textContent =
-        'The API at ' + API + ' is not responding.\n\nStart the backend with:\n'
-        + '  cd backend && mvn spring-boot:run';
+      el('problemPrompt').textContent = 'We could not load the problem. Please refresh the page and try again.';
     });
-  });
-})();
-}, { once: true });
+  }
+  init();
+  return function cleanupChallenge() {
+    disposed = true;
+    stopClock();
+    requests.abort();
+    releaseBadge();
+    if (state.editor) {
+      var model = state.editor.getModel();
+      state.editor.dispose();
+      if (model) model.dispose();
+    }
+  };
+}

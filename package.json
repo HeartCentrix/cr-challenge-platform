@@ -3,9 +3,12 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve --configuration local",
+    "start": "ng serve --configuration local-dev",
+    "start:local": "ng serve --configuration local",
+    "start:local-dev": "ng serve --configuration local-dev",
     "build": "ng build",
     "build:local": "ng build --configuration local",
+    "build:local-dev": "ng build --configuration local-dev",
     "build:dev": "ng build --configuration dev",
     "build:prod": "ng build --configuration production",
     "watch": "ng build --watch --configuration development",
@@ -31,6 +34,8 @@
     "@angular/forms": "^20.3.0",
     "@angular/platform-browser": "^20.3.0",
     "@angular/router": "^20.3.0",
+    "exceljs": "4.4.0",
+    "html2canvas": "^1.4.1",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "zone.js": "~0.15.0"
