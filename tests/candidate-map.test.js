@@ -8,12 +8,12 @@ const path = require('node:path');
 function setup() {
   const node = () => ({ children: [], attrs: {}, textContent: '', appendChild(n) { this.children.push(n); },
     replaceChildren() { this.children = []; }, setAttribute(k, v) { this.attrs[k] = v; } });
-  const svg = node(), status = node();
-  const context = {window:{}, document:{ getElementById: id => id === 'usaMap' ? svg : status, createElementNS: node }};
+  const svg = node();
+  const context = {window:{}, document:{ getElementById: id => id === 'usaMap' ? svg : null, createElementNS: node }};
   vm.createContext(context);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../public/map.js'), 'utf8'), context);
   const dots = () => svg.children.find(n => n.attrs.class === 'candidate-map-dots').children;
-  return { render: context.window.buildChallengeMap, svg, status, dots, context };
+  return { render: context.window.buildChallengeMap, svg, dots, context };
 }
 test('no decorative dots when loading, empty or unavailable; no accumulation across renders', () => {
   const map = setup();
@@ -27,7 +27,7 @@ test('projects real US locations onto land and merges colocated candidate counts
     {latitude:32.5,longitude:-97,candidates:1},{latitude:-33,longitude:151,candidates:50}, {latitude:NaN,longitude:0,candidates:2}]});
   assert.equal(map.dots().length, 2);
   assert.equal(map.dots()[0].children[0].textContent, '5 candidates in this approximate area');
-  assert.match(map.status.textContent, /6 candidates shown/);
+  assert.match(map.svg.attrs['aria-label'], /6 candidates shown/);
   map.render({status:'ready',points:[]}); assert.equal(map.dots().length, 0);
 });
 test('projection aligns with the existing city geometry', () => {

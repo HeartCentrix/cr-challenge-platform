@@ -57,11 +57,9 @@ window.buildChallengeMap = function buildUsaMap(data) {
     dots.appendChild(dot);
   }
   svg.appendChild(dots);
-  const status = document.getElementById('mapStatus');
   const message = !data ? 'Loading candidate locations...'
     : data.status !== 'ready' ? 'Candidate locations are currently unavailable.'
     : shown ? shown.toLocaleString() + (shown === 1 ? ' candidate' : ' candidates') + ' shown · approximate US locations'
     : 'No mappable US candidate locations yet.';
-  if (status) status.textContent = message;
   svg.setAttribute('aria-label', message);
 };

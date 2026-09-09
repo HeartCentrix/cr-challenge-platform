@@ -515,28 +515,6 @@
     0%, 100% { opacity: 0.55; }
     50% { opacity: 1; }
   }
-  .map-legend{
-    display:flex;
-    align-items:center;
-    gap: 8px;
-    margin-top: 14px;
-    font-size: 12px;
-    color: var(--text-dim);
-    text-align: left;
-    flex-wrap: wrap;
-  }
-  .legend-dot{
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: #2A2A2A;
-    display:inline-block;
-    margin-left: 14px;
-  }
-  .legend-dot:first-child{ margin-left: 0; }
-  .legend-dot.active{
-    background: var(--amber);
-    box-shadow: 0 0 6px var(--amber-glow);
-  }
 
   @media (max-width: 720px){
     .activity-grid{ grid-template-columns: 1fr; }
