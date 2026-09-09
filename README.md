@@ -5,6 +5,14 @@ The public challenge page, built from the supplied design
 
 ## Run it locally
 
+Editor mass-input tracking records 80+ character edits or rapid, sparsely typed
+bursts as review signals, not proof of console pasting. Changed editor state is
+checkpointed every 30 seconds and best-effort at submission. Idle pages send no
+checkpoints. This uses backend migration `08_activity_checkpoints.sql`; deploy that
+and the updated backend before this frontend. Admin details and day-scoped Excel
+reports include checkpoint code, receipt times in the admin's local time zone, and
+mass-input counts. No clipboard contents or personal-field input is monitored.
+
 ```bash
 cd frontend
 npm ci

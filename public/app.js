@@ -354,20 +354,24 @@ function bootstrapChallenge(createActivity) {
       show(result);
       el('resultStatus').textContent = 'Submitting your answer...';
 
-      api('/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          slug: state.question.slug,
-          sourceCode: sourceCode(),
-          fullName: el('firstNameInput').value.trim() + ' ' + el('lastNameInput').value.trim(),
-          email: el('emailInput').value.trim(),
-          phone: el('phoneInput').value.trim(),
-          consent: false,
-          durationMs: submittedDurationMs,
-          sourceCampaign: new URLSearchParams(location.search).get('c') || 'direct',
-          editorActivity: activity ? activity.snapshot() : null
-        })
+      (activity ? activity.flush() : Promise.resolve()).then(function () {
+        if (disposed) throw new Error('Challenge closed');
+        return api('/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            slug: state.question.slug,
+            sourceCode: sourceCode(),
+            fullName: el('firstNameInput').value.trim() + ' ' + el('lastNameInput').value.trim(),
+            email: el('emailInput').value.trim(),
+            phone: el('phoneInput').value.trim(),
+            consent: false,
+            durationMs: submittedDurationMs,
+            sourceCampaign: new URLSearchParams(location.search).get('c') || 'direct',
+            editorActivity: activity ? activity.snapshot() : null,
+            activityToken: activity ? activity.checkpointToken : null
+          })
+        });
       }).then(function (r) {
         if (r.status === 429) {
           submissionError('You have already submitted today. Come back tomorrow.');
@@ -425,12 +429,16 @@ function bootstrapChallenge(createActivity) {
 
   function loadStats() {
     api('/stats').then(function (r) {
-      if (!r.ok) return;
+      if (disposed) return;
+      if (!r.ok) throw new Error('Statistics unavailable');
+      window.buildChallengeMap(r.body.activityMap || { status: 'unavailable', points: [] });
       var t = el('ticker');
       if (t) t.textContent = Number(r.body.attempts || 0).toLocaleString();
       var label = portal.querySelector('.ticker-label');
       if (label) label.textContent = 'submissions so far';
-    }).catch(function () { /* ticker stays as-is */ });
+    }).catch(function () {
+      if (!disposed) window.buildChallengeMap({ status: 'unavailable', points: [] });
+    });
   }
 
   // ------------------------------------------------------------------ init

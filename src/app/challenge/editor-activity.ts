@@ -1,11 +1,14 @@
+import { EditorCheckpoints } from './editor-checkpoints';
+
 export interface ClipboardCounts { copy: number; cut: number; paste: number; drop: number; }
-export interface ActivityEvent { offsetMs: number; kind: string; area: 'question' | 'answer'; trusted: boolean | null; }
+export interface ActivityEvent { offsetMs: number; kind: string; area: 'question' | 'answer'; trusted: boolean | null; inserted?: number; deleted?: number; }
 export interface EditorActivityReport {
   version: number; questionSlug: string; startedAt: string; elapsedMs: number;
   question: ClipboardCounts; answer: ClipboardCounts;
   keydownCount: number; trustedKeydownCount: number; syntheticEvents: number;
   modelChangeCount: number; unexplainedChangeCount: number; observedPasteCount: number;
   insertedCharacters: number; deletedCharacters: number; droppedEvents: number; events: ActivityEvent[];
+  bulkChangeCount?: number; unexplainedBulkChangeCount?: number; largestInsertion?: number;
 }
 export interface ActivityEditor {
   getValue(): string;
@@ -28,15 +31,18 @@ export class EditorActivity {
   private recentInput = -Infinity;
   private lastValue: string;
   private lastClipboard?: { key: string; channel: string; at: number };
+  private burst = { at: -Infinity, inserted: 0, keys: 0, flagged: false };
   private readonly report: EditorActivityReport;
+  private readonly checkpoints?: EditorCheckpoints;
 
-  constructor(private readonly portal: HTMLElement, private readonly editor: ActivityEditor, slug: string) {
+  constructor(private readonly portal: HTMLElement, private readonly editor: ActivityEditor, slug: string, checkpointUrl?: string) {
     this.lastValue = editor.getValue();
     const counts = (): ClipboardCounts => ({ copy: 0, cut: 0, paste: 0, drop: 0 });
     this.report = { version: 1, questionSlug: slug, startedAt: new Date().toISOString(), elapsedMs: 0,
       question: counts(), answer: counts(), keydownCount: 0, trustedKeydownCount: 0, syntheticEvents: 0,
       modelChangeCount: 0, unexplainedChangeCount: 0, observedPasteCount: 0,
-      insertedCharacters: 0, deletedCharacters: 0, droppedEvents: 0, events: [] };
+      insertedCharacters: 0, deletedCharacters: 0, droppedEvents: 0, events: [],
+      bulkChangeCount: 0, unexplainedBulkChangeCount: 0, largestInsertion: 0 };
     const listen = (type: string, handler: (event: Event) => void) =>
       portal.ownerDocument.addEventListener(type, handler, { capture: true, signal: this.listeners.signal });
     for (const action of ['copy', 'cut', 'paste', 'drop'] as const) {
@@ -68,6 +74,7 @@ export class EditorActivity {
       this.report.observedPasteCount++;
       this.clipboard('answer', 'paste', 'monaco', null, 'paste-observed');
     }));
+    if (checkpointUrl) this.checkpoints = new EditorCheckpoints(checkpointUrl, () => editor.getValue(), () => this.snapshot());
   }
 
   private area(event: Event, selection = false): 'question' | 'answer' | undefined {
@@ -114,8 +121,6 @@ export class EditorActivity {
     event.stopImmediatePropagation();
     if (!this.active) return;
     this.clipboard(area, action, channel, event.isTrusted, action + '-blocked');
-    const notice = this.portal.querySelector('#activityStatus');
-    if (notice) notice.textContent = 'Copy, cut, paste and drag/drop are disabled for this challenge. Please type your answer.';
   }
 
   private clipboard(area: 'question' | 'answer', action: keyof ClipboardCounts, channel: string, trusted: boolean | null, kind: string) {
@@ -138,13 +143,30 @@ export class EditorActivity {
     this.report.deletedCharacters = Math.min(10000000, this.report.deletedCharacters + event.changes.reduce((n, change) => n + change.rangeLength, 0));
     const unexplained = event.isFlush || (!event.isUndoing && !event.isRedoing && performance.now() - this.recentInput > 500);
     if (unexplained) this.report.unexplainedChangeCount++;
-    this.record(unexplained ? 'unexplained-change' : event.isUndoing ? 'undo' : event.isRedoing ? 'redo' : inserted >= 80 ? 'bulk-change' : 'model-change', 'answer', null);
+    if (event.isUndoing || event.isRedoing) this.burst.at = -Infinity;
+    if (!event.isUndoing && !event.isRedoing) {
+      this.report.largestInsertion = Math.max(this.report.largestInsertion!, inserted);
+      const now = performance.now();
+      if (now - this.burst.at > 1000) this.burst = { at: now, inserted: 0, keys: this.report.trustedKeydownCount, flagged: false };
+      this.burst.inserted += inserted;
+      const sparseTyping = this.burst.inserted > (this.report.trustedKeydownCount - this.burst.keys) * 4 + 20;
+      const bulk = inserted >= 80 || (!this.burst.flagged && this.burst.inserted >= 80 && sparseTyping);
+      if (bulk) {
+        const suspicious = Boolean(unexplained || sparseTyping);
+        this.report.bulkChangeCount!++;
+        if (suspicious) this.report.unexplainedBulkChangeCount!++;
+        this.burst.flagged = true;
+        this.record(suspicious ? 'bulk-unexplained' : 'bulk-change', 'answer', null,
+          inserted >= 80 ? inserted : this.burst.inserted, event.changes.reduce((n, c) => n + c.rangeLength, 0));
+      }
+    }
+    this.record(unexplained ? 'unexplained-change' : event.isUndoing ? 'undo' : event.isRedoing ? 'redo' : 'model-change', 'answer', null);
     this.lastValue = this.editor.getValue();
   }
 
-  private record(kind: string, area: 'question' | 'answer', trusted: boolean | null) {
+  private record(kind: string, area: 'question' | 'answer', trusted: boolean | null, inserted?: number, deleted?: number) {
     if (trusted === false) this.report.syntheticEvents++;
-    if (this.report.events.length < 5000) this.report.events.push({ offsetMs: this.offset(), kind, area, trusted });
+    if (this.report.events.length < 5000) this.report.events.push({ offsetMs: this.offset(), kind, area, trusted, ...(inserted === undefined ? {} : { inserted, deleted }) });
     else this.report.droppedEvents++;
   }
 
@@ -164,5 +186,9 @@ export class EditorActivity {
     this.active = false;
     this.listeners.abort();
     this.subscriptions.forEach(subscription => subscription.dispose());
+    this.checkpoints?.dispose();
   }
+
+  get checkpointToken() { return this.checkpoints?.token ?? null; }
+  flush() { return this.checkpoints?.flush() ?? Promise.resolve(); }
 }

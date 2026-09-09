@@ -1,5 +1,6 @@
 import { AfterViewInit, ChangeDetectionStrategy, Component, NgZone, OnDestroy, inject } from '@angular/core';
 import { ActivityEditor, EditorActivity } from './editor-activity';
+import { environment } from '../../environments/environment';
 
 declare global {
   interface Window {
@@ -49,7 +50,7 @@ export class Challenge implements AfterViewInit, OnDestroy {
         ]);
         if (this.destroyed) return;
         window.buildChallengeMap();
-        this.cleanup = window.bootstrapChallenge((portal, editor, slug) => new EditorActivity(portal, editor, slug));
+        this.cleanup = window.bootstrapChallenge((portal, editor, slug) => new EditorActivity(portal, editor, slug, `${environment.apiBaseUrl}/activity-checkpoints`));
       } catch {
         if (this.destroyed) return;
         const title = document.getElementById('problemTitle');

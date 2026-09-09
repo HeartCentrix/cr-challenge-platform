@@ -29,8 +29,10 @@ export function candidateWorkbook(candidate: CandidateDetail, attempts: AttemptD
 
   const activitySummary = reportSheet(book, stamp, 'Editor Activity', ['Attempt ID', 'Area / metric', 'Copy', 'Cut', 'Paste', 'Drop', 'Value'],
     [14, 40, 12, 12, 12, 12, 60], 'Unverified client observations, not proof of cheating. Missing telemetry is not zero.');
-  const activityEvents = reportSheet(book, stamp, 'Activity Timeline', ['Attempt ID', 'Tracking started (local)', 'UTC offset', 'Offset (ms)', 'Area', 'Event', 'Browser-trusted'],
-    [14, 26, 15, 18, 15, 30, 20], 'Client clock start plus monotonic offset. No literal keys or clipboard contents; up to 5,000 events per attempt.');
+  const activityEvents = reportSheet(book, stamp, 'Activity Timeline', ['Attempt ID', 'Tracking started (local)', 'UTC offset', 'Offset (ms)', 'Area', 'Event', 'Browser-trusted', 'Inserted characters', 'Deleted characters'],
+    [14, 26, 15, 18, 15, 30, 20, 20, 20], 'Client clock start plus monotonic offset. No literal keys or clipboard contents; up to 5,000 events per attempt.');
+  const checkpoints = reportSheet(book, stamp, 'Editor Checkpoints', ['Attempt ID', 'Sequence', 'Received (local)', 'UTC offset', 'Elapsed (ms)', 'Key events', 'Mass inputs', 'Flagged mass inputs', 'Code part', 'Code'],
+    [14, 14, 26, 15, 18, 16, 16, 20, 12, 110], 'Server receipt times; client-reported code/activity. Changed states only, not proof of cheating. Code split into numbered parts.');
   const p = candidate.performance;
   const profile: CellValue[][] = [
     ['Candidate', candidate.fullName || 'Unnamed candidate'], ['Candidate ID', candidate.id], ['Email', candidate.email],
@@ -54,7 +56,7 @@ export function candidateWorkbook(candidate: CandidateDetail, attempts: AttemptD
     if (values[0] === 'Overall pass rate') r.getCell(2).numFmt = '0.00%';
     if (values[0] === 'Total time taken') r.getCell(2).numFmt = '[h]:mm:ss';
   });
-  function textRows(s: Worksheet, ids: number[], kind: string, text: string | null | undefined) {
+  function textRows(s: Worksheet, ids: CellValue[], kind: CellValue, text: string | null | undefined) {
     // Excel cells are limited to 32,767 UTF-16 code units. Avoid splitting surrogate pairs.
     const value = text ?? '(not recorded)'; let start = 0, part = 1;
     do {
@@ -68,21 +70,31 @@ export function candidateWorkbook(candidate: CandidateDetail, attempts: AttemptD
   for (const a of attempts) {
     const s = a.summary;
     const activity = a.editorActivity;
+    const history = a.checkpointHistory;
+    for (const checkpoint of history?.checkpoints ?? []) {
+      textRows(checkpoints, [s.id, checkpoint.sequence, time.excelDate(checkpoint.receivedAt), time.parts(checkpoint.receivedAt)?.offset,
+        checkpoint.activity.elapsedMs, checkpoint.activity.keydownCount, checkpoint.activity.bulkChangeCount ?? null],
+        checkpoint.activity.unexplainedBulkChangeCount ?? 'Not recorded', checkpoint.sourceCode);
+    }
+    checkpoints.getColumn(3).numFmt = dateFormat;
     if (!activity) activitySummary.addRow([s.id, 'Recording status', null, null, null, null, 'Not recorded']);
     else {
       for (const area of ['question', 'answer'] as const) {
         const c = activity[area];
         activitySummary.addRow([s.id, area + ' clipboard attempts', c.copy, c.cut, c.paste, c.drop]);
       }
-      for (const key of ['keydownCount', 'trustedKeydownCount', 'modelChangeCount', 'unexplainedChangeCount', 'observedPasteCount', 'syntheticEvents', 'insertedCharacters', 'deletedCharacters', 'droppedEvents'] as const) {
-        activitySummary.addRow([s.id, key, null, null, null, null, activity[key]]);
+      for (const key of ['keydownCount', 'trustedKeydownCount', 'modelChangeCount', 'unexplainedChangeCount', 'observedPasteCount', 'syntheticEvents', 'insertedCharacters', 'deletedCharacters', 'droppedEvents', 'bulkChangeCount', 'unexplainedBulkChangeCount', 'largestInsertion'] as const) {
+        activitySummary.addRow([s.id, key, null, null, null, null, activity[key] ?? 'Not recorded']);
       }
       for (const event of activity.events) {
         const row = activityEvents.addRow([s.id, time.excelDate(activity.startedAt), time.parts(activity.startedAt)?.offset,
-          event.offsetMs, event.area, event.kind, event.trusted === null ? 'Not applicable' : event.trusted ? 'Yes' : 'No']);
+          event.offsetMs, event.area, event.kind, event.trusted === null ? 'Not applicable' : event.trusted ? 'Yes' : 'No', event.inserted ?? null, event.deleted ?? null]);
         row.getCell(2).numFmt = dateFormat;
       }
     }
+    activitySummary.addRow([s.id, 'Checkpoint status', null, null, null, null, history?.status ?? 'Not recorded']);
+    activitySummary.addRow([s.id, 'Final code matches checkpoint', null, null, null, null, history?.finalCodeMatches ?? 'Not recorded']);
+    activitySummary.addRow([s.id, 'Checkpoint intervals over 90 seconds', null, null, null, null, history?.reportingGaps ?? 'Not recorded']);
     const r = submissions.addRow([s.id, s.title, s.questionId, s.slug, s.language, time.excelDate(s.submittedAt),
       time.parts(s.submittedAt)?.offset, elapsed(s.durationMs), s.testcasesPassed, s.testcasesTotal, percent(s.passPercentage),
       s.score, s.speedBonus, s.judgeStatus, a.difficulty, a.timeLimitSeconds, a.ipAddress, a.userAgent, a.testcases.length]);

@@ -91,7 +91,7 @@ describe('Admin exports', () => {
     const noCases = { ...attempt, summary: { ...attempt.summary, id: 9 }, testcases: [] };
     const book = candidateWorkbook(candidate, [detailed, noCases], new AdminTime('Asia/Kolkata'), new Date('2026-09-01T12:00:00Z'));
     const restored = new Workbook(); await restored.xlsx.load(await book.xlsx.writeBuffer());
-    expect(restored.worksheets.map(s => s.name)).toEqual(['Candidate Overview', 'Submissions', 'Code and Questions', 'Test Results', 'Test Case Content', 'Editor Activity', 'Activity Timeline']);
+    expect(restored.worksheets.map(s => s.name)).toEqual(['Candidate Overview', 'Submissions', 'Code and Questions', 'Test Results', 'Test Case Content', 'Editor Activity', 'Activity Timeline', 'Editor Checkpoints']);
     expect(restored.getWorksheet('Editor Activity')!.getCell('G5').value).toBe('Not recorded');
     const history = restored.getWorksheet('Submissions')!;
     expect(history.rowCount).toBe(6);
@@ -131,8 +131,11 @@ describe('Admin exports', () => {
       question: counts, answer: counts, keydownCount: 10, trustedKeydownCount: 9, syntheticEvents: 1,
       modelChangeCount: 8, unexplainedChangeCount: 1, observedPasteCount: 1,
       insertedCharacters: 100, deletedCharacters: 3, droppedEvents: 0,
-      events: [{ offsetMs: 1000, kind: 'key-character', area: 'answer', trusted: true }],
+      bulkChangeCount: 1, unexplainedBulkChangeCount: 1, largestInsertion: 100,
+      events: [{ offsetMs: 1000, kind: 'bulk-unexplained', area: 'answer', trusted: null, inserted: 100, deleted: 3 }],
     } };
+    detailed.checkpointHistory = { status: 'recorded', finalCodeMatches: false, reportingGaps: false,
+      checkpoints: [{ sequence: 1, receivedAt: '2026-09-01T11:59:30Z', sourceCode: '=literal code' + 'x'.repeat(31000), activity: detailed.editorActivity! }] };
     const book = candidateWorkbook(candidate, [detailed], new AdminTime('Asia/Kolkata'), new Date('2026-09-01T12:00:00Z'), '2026-09-01');
     const restored = new Workbook(); await restored.xlsx.load(await book.xlsx.writeBuffer());
     const timeline = restored.getWorksheet('Activity Timeline')!;
@@ -140,6 +143,13 @@ describe('Admin exports', () => {
     expect(timeline.getCell('B5').value).toEqual(new Date('2026-09-01T17:29:00Z'));
     expect(timeline.getCell('C5').value).toBe('UTC+05:30');
     expect(timeline.getCell('D5').value).toBe(1000);
+    expect(timeline.getCell('H5').value).toBe(100);
+    const checkpoints = restored.getWorksheet('Editor Checkpoints')!;
+    expect(checkpoints.getCell('C5').value).toEqual(new Date('2026-09-01T17:29:30Z'));
+    expect(checkpoints.getCell('D5').value).toBe('UTC+05:30');
+    expect(checkpoints.getCell('H5').value).toBe(1);
+    expect(checkpoints.getCell('J5').formula).toBeUndefined();
+    expect(checkpoints.getCell('J5').text + checkpoints.getCell('J6').text).toBe(detailed.checkpointHistory.checkpoints[0].sourceCode);
     expect(restored.getWorksheet('Editor Activity')!.getCell('E5').value).toBe(2);
     expect(() => candidateWorkbook(candidate, [detailed], new AdminTime('Asia/Kolkata'), new Date(), '2026-09-02')).toThrow();
   });

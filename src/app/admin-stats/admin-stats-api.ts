@@ -25,6 +25,8 @@ export interface CaseResult {
   passed: boolean | null; judgeStatus: string | null; execTimeMs: number | null; memoryKb: number | null; stdout: string | null;
 }
 export interface AttemptDetail {
+  checkpointHistory?: { status: string; finalCodeMatches: boolean | null; reportingGaps: boolean;
+    checkpoints: { sequence: number; receivedAt: string; sourceCode: string; activity: EditorActivityReport }[] };
   editorActivity?: EditorActivityReport | null;
   summary: AttemptSummary; sourceCode: string; prompt: string; difficulty: number; timeLimitSeconds: number;
   starterCode: string; referenceSolution: string; ipAddress: string; userAgent: string; testcases: CaseResult[];

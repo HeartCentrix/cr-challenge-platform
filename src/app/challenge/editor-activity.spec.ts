@@ -8,7 +8,7 @@ describe('Editor activity boundaries', () => {
   const fire = (id: string, e: Event) => { portal.querySelector('#' + id)!.dispatchEvent(e); return e; };
   beforeEach(() => {
     portal = document.createElement('div');
-    portal.innerHTML = '<pre id="problemPrompt">Prompt</pre><div id="editorHost"><textarea id="answer"></textarea></div><div id="modalOverlay"><input id="email"></div><p id="activityStatus"></p>';
+    portal.innerHTML = '<pre id="problemPrompt">Prompt</pre><div id="editorHost"><textarea id="answer"></textarea></div><div id="modalOverlay"><input id="email"></div>';
     document.body.append(portal);
     value = 'starter';
     editor = { getValue: () => value,
@@ -70,5 +70,38 @@ describe('Editor activity boundaries', () => {
     expect(report.keydownCount).toBe(5005); report.answer.copy = 999;
     expect(activity.snapshot().answer.copy).toBe(0);
     activity.dispose(); expect(fire('answer', event('paste')).defaultPrevented).toBeFalse();
+  });
+
+  it('flags mass model replacements with character counts, even after recent editor interaction', () => {
+    expect(activity.snapshot().bulkChangeCount).toBe(0);
+    fire('answer', new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+    value = 'x'.repeat(200);
+    changed({ changes: [{ text: value, rangeLength: 7 }], isFlush: true });
+    const report = activity.snapshot();
+    expect(report.bulkChangeCount).toBe(1); expect(report.unexplainedBulkChangeCount).toBe(1);
+    expect(report.largestInsertion).toBe(200);
+    expect(report.events.find(e => e.kind === 'bulk-unexplained')?.inserted).toBe(200);
+    expect(report.events.find(e => e.kind === 'bulk-unexplained')?.deleted).toBe(7);
+    expect(portal.textContent).not.toContain('Please type your answer');
+  });
+
+  it('detects rapid small insertions as one mass-input burst but excludes undo and redo', () => {
+    for (let i = 0; i < 10; i++) {
+      value += 'x'.repeat(10); changed({ changes: [{ text: 'x'.repeat(10), rangeLength: 0 }] });
+    }
+    expect(activity.snapshot().bulkChangeCount).toBe(1);
+    changed({ changes: [{ text: 'x'.repeat(500), rangeLength: 500 }], isUndoing: true });
+    changed({ changes: [{ text: 'x'.repeat(500), rangeLength: 500 }], isRedoing: true });
+    expect(activity.snapshot().bulkChangeCount).toBe(1);
+    expect(activity.snapshot().largestInsertion).toBe(10);
+  });
+
+  it('does not flag ordinary one-character typing with matching browser-trusted key counts', () => {
+    // Browser trust cannot be forged in a DOM event; supply its count via the test fixture only.
+    for (let i = 0; i < 100; i++) {
+      (activity as unknown as { report: { trustedKeydownCount: number } }).report.trustedKeydownCount++;
+      value += 'x'; changed({ changes: [{ text: 'x', rangeLength: 0 }] });
+    }
+    expect(activity.snapshot().bulkChangeCount).toBe(0);
   });
 });
