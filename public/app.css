@@ -2,6 +2,12 @@
    new controls sit inside the existing visual language rather than beside it. */
 
 /* ---------------------------------------------------------------- problem */
+.timer-block{
+  position: sticky;
+  top: 56px;
+  z-index: 21;
+}
+
 .problem-head{
   width: 100%;
   max-width: 760px;
@@ -74,6 +80,42 @@
   background: #0A0A0A;
 }
 .editor-host.locked{ opacity: 0.55; pointer-events: none; }
+
+.challenge-workspace{ width: 100%; }
+@media (min-width: 900px){
+  .challenge-workspace{
+    width: calc(100vw - 80px);
+    max-width: 1440px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto 430px;
+    column-gap: 24px;
+    margin-bottom: 40px;
+  }
+  .challenge-workspace .problem-head{
+    grid-column: 1 / -1;
+    max-width: none;
+  }
+  .challenge-workspace .problem-prompt{
+    min-width: 0;
+    height: 100%;
+    max-height: none;
+    max-width: none;
+    margin: 0;
+  }
+  .challenge-workspace .editor{
+    min-width: 0;
+    height: 100%;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .challenge-workspace .editor-host{
+    flex: 1;
+    min-height: 0;
+    height: auto;
+  }
+}
 
 /* -------------------------------------------------------------- run panel */
 .run-bar{

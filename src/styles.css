@@ -1,1 +1,73 @@
-/* You can add global styles to this file, and also import other style files */
+/* Typography from client-codereport/src/styles.scss and pages/login/login.scss.
+   Keep the challenge's layout and monospace code/output styles intact. */
+:root {
+  --sans: "Inter", sans-serif;
+}
+
+body {
+  font-family: var(--sans);
+  font-weight: 400;
+}
+
+#challengePortal :is(
+  .marquee-track span, .logo, .timer, .editor-filename, .editor-hint,
+  .ticker, .ticker-label, footer, .result-status, .score-num, .badge-tier,
+  .badge-stats span, .panel-title, .board-rank, .board-time, .board-badge,
+  .problem-difficulty, .problem-prompt, .run-label, .run-select, .run-btn,
+  .run-status, .result-detail, .notice, .board-empty
+) {
+  font-family: var(--sans);
+  letter-spacing: normal;
+}
+
+#challengePortal h1 {
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 44px;
+  letter-spacing: -0.02em;
+}
+
+#challengePortal :is(.problem-title, .panel-title, .modal-body h2) {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 30px;
+  letter-spacing: normal;
+}
+
+#challengePortal .subtext {
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 30px;
+}
+
+#challengePortal :is(.problem-prompt, .board-row, .board-empty, .modal-body p) {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+#challengePortal :is(.cta, .modal-submit, .run-btn) {
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: normal;
+}
+
+#challengePortal :is(.modal-body input, .run-select) {
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+#challengePortal :is(.run-label, .timer-label) {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: normal;
+}
+
+#challengePortal :is(.problem-difficulty, .ticker-label, .notice, .board-badge) {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+}

@@ -422,9 +422,12 @@ function bootstrapChallenge() {
     api('/stats').then(function (r) {
       if (!r.ok) return;
       var t = el('ticker');
-      if (t) t.textContent = Number(r.body.attempts || 0).toLocaleString();
+      var count = Number(r.body.attempts || 0);
+      if (t) t.textContent = count.toLocaleString();
       var label = portal.querySelector('.ticker-label');
       if (label) label.textContent = 'submissions so far';
+      var block = portal.querySelector('.ticker-block');
+      if (block) block.style.display = count > 100 ? '' : 'none';
     }).catch(function () { /* ticker stays as-is */ });
   }
 
