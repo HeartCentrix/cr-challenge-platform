@@ -15,7 +15,7 @@ export interface AttemptSummary {
   durationMs: number | null; testcasesPassed: number; testcasesTotal: number; passPercentage: number | null;
   score: number; speedBonus: number; judgeStatus: string | null;
 }
-export interface CandidateRow { id: number; fullName: string; email: string; phone: string; sourceCampaign: string | null; performance: Performance; }
+export interface CandidateRow { id: number; fullName: string; email: string; phone: string; sourceCampaign: string | null; performance: Performance; regionCode?: string; region?: string; }
 export interface CandidateDetail {
   id: number; fullName: string; email: string; phone: string; consented: boolean; sourceCampaign: string;
   firstSeenAt: string; lastSeenAt: string; performance: Performance; attempts: Page<AttemptSummary>;
@@ -25,6 +25,7 @@ export interface CaseResult {
   passed: boolean | null; judgeStatus: string | null; execTimeMs: number | null; memoryKb: number | null; stdout: string | null;
 }
 export interface AttemptDetail {
+  sessionTiming?: { sessionId: number; questionNumber: number; startedAt: string; expiresAt: string; finishedAt: string | null; elapsedMs: number | null } | null;
   checkpointHistory?: { status: string; finalCodeMatches: boolean | null; reportingGaps: boolean;
     checkpoints: { sequence: number; receivedAt: string; sourceCode: string; activity: EditorActivityReport }[] };
   editorActivity?: EditorActivityReport | null;

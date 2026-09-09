@@ -13,7 +13,8 @@ export class EditorCheckpoints {
   private readonly timer: ReturnType<typeof setInterval>;
 
   constructor(private readonly url: string, private readonly code: () => string,
-      private readonly snapshot: () => EditorActivityReport) {
+      private readonly snapshot: () => EditorActivityReport,
+      private readonly context?: { challengeToken: string; ordinal: number }) {
     this.lastSaved = this.capture().signature;
     this.timer = setInterval(() => { void this.flush(); }, 30000);
   }
@@ -34,7 +35,7 @@ export class EditorCheckpoints {
     if (!this.pending) {
       if (current.signature === this.lastSaved || current.sourceCode.length > 32000) return Promise.resolve();
       this.pending = { signature: current.signature, body: JSON.stringify({ token: this.token, sequence: this.sequence,
-        slug: current.activity.questionSlug, sourceCode: current.sourceCode, activity: current.activity }) };
+        slug: current.activity.questionSlug, sourceCode: current.sourceCode, activity: current.activity, ...this.context }) };
     }
     const pending = this.pending;
     this.controller = new AbortController();

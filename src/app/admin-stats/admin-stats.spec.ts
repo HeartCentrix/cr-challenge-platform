@@ -38,12 +38,13 @@ describe('AdminStats', () => {
     expect(fixture.nativeElement.querySelector('#totalCandidates').textContent).toBe('0');
     fixture.componentInstance.loadMore(); fixture.componentInstance.fillViewport();
     http.expectNone(r => r.url.endsWith('/candidates'));
-    params.next(convertToParamMap({ campaign: 'linkedin', startDate: '2026-01-01', endDate: '2026-01-31', minPercent: '25', maxPercent: '75' }));
+    params.next(convertToParamMap({ campaign: 'linkedin', region: 'TX', startDate: '2026-01-01', endDate: '2026-01-31', minPercent: '25', maxPercent: '75' }));
     fixture.detectChanges();
     const requests = http.match(r => r.url.includes('/admin/stats'));
     expect(requests.length).toBe(2);
     for (const request of requests) {
       expect(request.request.params.get('campaign')).toBe('linkedin');
+      expect(request.request.params.get('region')).toBe('TX');
       expect(request.request.params.get('startDate')).toBe('2026-01-01');
       expect(request.request.params.get('endDate')).toBe('2026-01-31');
       expect(request.request.params.get('minPercent')).toBe('25');
@@ -62,13 +63,15 @@ describe('AdminStats', () => {
     expect(stale.cancelled).toBeTrue();
     const first = http.expectOne(r => r.url.endsWith('/candidates'));
     expect(first.request.params.get('bucket')).toBe('perfect');
-    const row = { id: 100, fullName: 'Test Candidate', email: 'test@example.invalid', phone: '', sourceCampaign: 'direct',
+    const row = { id: 100, fullName: 'Test Candidate', email: 'test@example.invalid', phone: '', sourceCampaign: 'direct', regionCode: 'TX', region: 'Texas',
       performance: { attemptCount: 2, questionsAttempted: 1, testcasesPassed: 20, testcasesTotal: 20, passPercentage: 100, totalScore: 160, averageScore: 80, durationMs: 5000, lastSubmittedAt: '2026-01-01T00:00:00Z' } };
     first.flush({ items: [row], total: 2, nextCursor: 100 });
     fixture.componentInstance.loadMore();
     const second = http.expectOne(r => r.url.endsWith('/candidates'));
     expect(second.request.params.get('afterId')).toBe('100');
     second.flush({ items: [{ ...row, id: 99 }], total: 2, nextCursor: null });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.candidate-region').textContent).toContain('Texas');
     expect(fixture.componentInstance.rows().map(r => r.id)).toEqual([100, 99]);
     fixture.componentInstance.loadMore();
     http.expectNone(r => r.url.endsWith('/candidates'));

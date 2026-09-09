@@ -11,6 +11,7 @@ import { AdminExport } from './admin-export';
 import { AdminDataCache } from '../admin-auth/admin-data-cache';
 import { DateRange, DateRangePicker } from './date-range';
 import { StatsChart } from './stats-chart';
+import { REGION_OPTIONS } from './regions';
 import { AdminStatsApi, CandidateRow, CandidatePage, Overview, duration } from './admin-stats-api';
 
 @Component({
@@ -35,11 +36,13 @@ export class AdminStats {
   readonly bucket = computed(() => this.query().get('bucket') || 'all');
   readonly search = computed(() => this.query().get('search') || '');
   readonly campaign = computed(() => this.query().get('campaign') || '');
+  readonly region = computed(() => (this.query().get('region') || '').toUpperCase());
+  readonly regionOptions = REGION_OPTIONS;
   readonly range = computed(() => ({ startDate: this.query().get('startDate') || '', endDate: this.query().get('endDate') || '' }));
   readonly minPercent = computed(() => this.query().get('minPercent') || '0');
   readonly maxPercent = computed(() => this.query().get('maxPercent') || '100');
   readonly filters = computed(() => ({
-    search: this.search(), campaign: this.campaign(), ...this.range(), minPercent: this.minPercent(), maxPercent: this.maxPercent(),
+    search: this.search(), campaign: this.campaign(), region: this.region(), ...this.range(), minPercent: this.minPercent(), maxPercent: this.maxPercent(),
     timeZone: this.time.zone,
   }), { equal: (a, b) => JSON.stringify(a) === JSON.stringify(b) });
   // A shared snapshot prevents new submissions from shifting aggregates while scrolling.
@@ -117,15 +120,15 @@ export class AdminStats {
   }
   selectBucket(bucket: string) { this.update({ bucket: bucket === 'all' ? null : bucket }); }
   setRange(range: DateRange) { this.update({ startDate: range.startDate || null, endDate: range.endDate || null, bucket: null }); }
-  applyFilters(event: Event, search: HTMLInputElement, min: HTMLInputElement, max: HTMLInputElement, campaign: HTMLInputElement) {
+  applyFilters(event: Event, search: HTMLInputElement, min: HTMLInputElement, max: HTMLInputElement, campaign: HTMLInputElement, region: HTMLSelectElement) {
     event.preventDefault();
     if (!min.checkValidity() || !max.checkValidity() || Number(min.value) > Number(max.value)) {
       this.filterError.set('Enter a pass-rate range from 0 to 100, with minimum no greater than maximum.'); return;
     }
     this.filterError.set('');
-    this.update({ search: search.value.trim() || null, campaign: campaign.value.trim() || null, minPercent: min.value || '0', maxPercent: max.value || '100', bucket: null });
+    this.update({ search: search.value.trim() || null, campaign: campaign.value.trim() || null, region: region.value || null, minPercent: min.value || '0', maxPercent: max.value || '100', bucket: null });
   }
-  clearFilters() { this.filterError.set(''); this.update({ search: null, campaign: null, minPercent: null, maxPercent: null, startDate: null, endDate: null, bucket: null }); }
+  clearFilters() { this.filterError.set(''); this.update({ search: null, campaign: null, region: null, minPercent: null, maxPercent: null, startDate: null, endDate: null, bucket: null }); }
   openCandidate(event: Event, id: number) {
     if (event.target instanceof Element && event.target.closest('a')) return;
     if (event instanceof KeyboardEvent && event.key !== 'Enter') return;

@@ -49,7 +49,15 @@
           <div><dt>Last test-case judge status</dt><dd>{{ attempt.value().summary.judgeStatus || 'Not recorded' }}</dd></div>
         </dl>
         <h3>Problem statement</h3><p class="muted">Question content reflects the current question bank; submission code and results are saved attempt records.</p><pre>{{ attempt.value().prompt }}</pre>
-        <p>Difficulty: {{ attempt.value().difficulty }}/10 · Time limit: {{ attempt.value().timeLimitSeconds }} seconds</p>
+        <p>Difficulty: {{ attempt.value().difficulty }}/10 · {{ attempt.value().sessionTiming ? 'Global session limit' : 'Time limit' }}: {{ attempt.value().timeLimitSeconds }} seconds</p>
+        @if (attempt.value().sessionTiming; as timing) {
+          <dl class="info">
+            <div><dt>Challenge session / question</dt><dd>#{{ timing.sessionId }} / {{ timing.questionNumber }}</dd></div>
+            <div><dt>Global timer started</dt><dd>{{ time.format(timing.startedAt) }}</dd></div>
+            <div><dt>Global deadline</dt><dd>{{ time.format(timing.expiresAt) }}</dd></div>
+            <div><dt>Session elapsed at answer</dt><dd>{{ duration(timing.elapsedMs) }}</dd></div>
+          </dl>
+        }
         <h3>Submitted code</h3><pre id="submittedCode">{{ attempt.value().sourceCode }}</pre>
         <h3>Editor activity</h3>
         <p class="muted">Client-reported activity for this question and submitted answer. Browser controls can be bypassed. Unexplained changes may include editor commands, formatting or assistive input; these signals are not proof of cheating.</p>

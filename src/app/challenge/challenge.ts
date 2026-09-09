@@ -4,7 +4,7 @@ import { environment } from '../../environments/environment';
 
 declare global {
   interface Window {
-    bootstrapChallenge: (factory: (portal: HTMLElement, editor: ActivityEditor, slug: string) => EditorActivity) => (() => void);
+    bootstrapChallenge: (factory: (portal: HTMLElement, editor: ActivityEditor, slug: string, context?: { challengeToken: string; ordinal: number }) => EditorActivity) => (() => void);
     buildChallengeMap: () => void;
   }
 }
@@ -50,7 +50,7 @@ export class Challenge implements AfterViewInit, OnDestroy {
         ]);
         if (this.destroyed) return;
         window.buildChallengeMap();
-        this.cleanup = window.bootstrapChallenge((portal, editor, slug) => new EditorActivity(portal, editor, slug, `${environment.apiBaseUrl}/activity-checkpoints`));
+        this.cleanup = window.bootstrapChallenge((portal, editor, slug, context) => new EditorActivity(portal, editor, slug, `${environment.apiBaseUrl}/activity-checkpoints`, context));
       } catch {
         if (this.destroyed) return;
         const title = document.getElementById('problemTitle');

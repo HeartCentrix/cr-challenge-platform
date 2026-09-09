@@ -35,7 +35,8 @@ export class EditorActivity {
   private readonly report: EditorActivityReport;
   private readonly checkpoints?: EditorCheckpoints;
 
-  constructor(private readonly portal: HTMLElement, private readonly editor: ActivityEditor, slug: string, checkpointUrl?: string) {
+  constructor(private readonly portal: HTMLElement, private readonly editor: ActivityEditor, slug: string, checkpointUrl?: string,
+      context?: { challengeToken: string; ordinal: number }) {
     this.lastValue = editor.getValue();
     const counts = (): ClipboardCounts => ({ copy: 0, cut: 0, paste: 0, drop: 0 });
     this.report = { version: 1, questionSlug: slug, startedAt: new Date().toISOString(), elapsedMs: 0,
@@ -74,7 +75,7 @@ export class EditorActivity {
       this.report.observedPasteCount++;
       this.clipboard('answer', 'paste', 'monaco', null, 'paste-observed');
     }));
-    if (checkpointUrl) this.checkpoints = new EditorCheckpoints(checkpointUrl, () => editor.getValue(), () => this.snapshot());
+    if (checkpointUrl) this.checkpoints = new EditorCheckpoints(checkpointUrl, () => editor.getValue(), () => this.snapshot(), context);
   }
 
   private area(event: Event, selection = false): 'question' | 'answer' | undefined {

@@ -155,8 +155,8 @@ describe('Admin exports', () => {
   });
 
   it('creates a formatted table workbook with literal text, typed values and exact filter metadata', async () => {
-    const rows = [{ ...row, fullName: '=SUM(1,2)', sourceCampaign: 'é\n"campaign"' }];
-    const filters = { campaign: 'é\n"campaign"', search: 'Example', startDate: '2026-09-01', endDate: '2026-09-02', minPercent: 25, maxPercent: 75, bucket: 'quarter' };
+    const rows = [{ ...row, fullName: '=SUM(1,2)', sourceCampaign: 'é\n"campaign"', region: 'Texas', regionCode: 'TX' }];
+    const filters = { campaign: 'é\n"campaign"', region: 'TX', search: 'Example', startDate: '2026-09-01', endDate: '2026-09-02', minPercent: 25, maxPercent: 75, bucket: 'quarter' };
     const book = tableWorkbook(rows, filters, new AdminTime('Asia/Kolkata'), new Date('2026-09-01T20:45:00Z'));
     const restored = new Workbook(); await restored.xlsx.load(await book.xlsx.writeBuffer());
     const sheet = restored.getWorksheet('Candidates')!;
@@ -165,6 +165,8 @@ describe('Admin exports', () => {
     expect(sheet.getCell('J5').value).toBe(0.3); expect(sheet.getCell('J5').numFmt).toBe('0.00%');
     expect(sheet.getCell('N5').value).toEqual(new Date('2026-09-01T17:30:00Z'));
     expect(sheet.getCell('O5').value).toBe('UTC+05:30');
+    expect(sheet.getCell('P5').value).toBe('Texas');
+    expect(restored.getWorksheet('Export Details')!.getColumn(2).values).toContain('TX');
     expect(sheet.getCell('A2').text).toContain('2026-09-02 02:15:00 UTC+05:30');
     expect(sheet.getCell('A2').text).toContain('Asia/Kolkata');
     expect(sheet.views[0].state).toBe('frozen'); expect(sheet.autoFilter).toBeTruthy();
@@ -188,12 +190,13 @@ describe('Admin exports', () => {
     expect(candidateReportFilename({ id: 2, fullName: 'A'.repeat(300) }).length).toBeLessThan(130);
   });
   it('includes every active table filter in the filename and omits internal pagination/snapshot values', () => {
-    const filename = candidateTableFilename({ search: 'Akshat Verma', campaign: 'linkedin', startDate: '2026-09-01',
+    const filename = candidateTableFilename({ search: 'Akshat Verma', campaign: 'linkedin', region: 'TX', startDate: '2026-09-01',
       endDate: '2026-09-09', minPercent: 25, maxPercent: 75, bucket: 'quarter', asOf: 'private-snapshot', afterId: 99 }, '2026-09-09');
     for (const part of ['search_Akshat-Verma', 'campaign_linkedin', 'from_2026-09-01', 'to_2026-09-09', 'pass-25-to-75', 'group-quarter']) {
       expect(filename).toContain(part);
     }
     expect(filename).not.toContain('snapshot');
+    expect(filename).toContain('region_TX');
     expect(filename).not.toContain('afterId');
     expect(candidateTableFilename({ bucket: 'all', minPercent: 0, maxPercent: 100 }, '2026-09-09')).toBe('codereport-all-candidates_2026-09-09.xlsx');
     expect(candidateTableFilename({ search: '../a:b?' }, '2026-09-09')).toContain('search_a-b');

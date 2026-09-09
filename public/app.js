@@ -16,12 +16,25 @@ function bootstrapChallenge(createActivity) {
   var timerId = null;
   var releaseBadge = function () {};
   var activity = null;
+  var draftTimer = null;
+  var finishSession = function () {};
+  var showCompletion = function () {};
+  var sessionKey = 'codereport.challenge.session.v1';
+  var token = null;
+  try { token = localStorage.getItem(sessionKey); } catch (_) { /* Session remains usable in memory. */ }
 
   var state = {
     question: null,
     editor: null,
-    startedAt: null,      // set on the first keystroke, not on page load
-    secondsLeft: null,
+    startedAt: null,
+    secondsLeft: 600,
+    session: null,
+    clockAnchor: 0,
+    wallAnchor: 0,
+    remainingAtSync: 600000,
+    revision: 0,
+    savedCode: '',
+    draftPending: null,
     ticking: false,
     timeUp: false,
     submitted: false,
@@ -36,15 +49,86 @@ function bootstrapChallenge(createActivity) {
   }
 
   function api(path, options) {
-    return fetch(API + path, Object.assign({}, options, { signal: requests.signal })).then(function (res) {
+    var controller = new AbortController();
+    var abort = function () { controller.abort(); };
+    requests.signal.addEventListener('abort', abort, { once: true });
+    if (requests.signal.aborted) controller.abort();
+    var timeout = path.indexOf('/challenge-sessions/') === 0 ? setTimeout(abort, 15000) : null;
+    return fetch(API + path, Object.assign({}, options, { signal: controller.signal })).then(function (res) {
       return res.json().catch(function () { return {}; }).then(function (body) {
         return { status: res.status, ok: res.ok, body: body };
       });
+    }).finally(function () {
+      if (timeout !== null) clearTimeout(timeout);
+      requests.signal.removeEventListener('abort', abort);
     });
   }
 
-  function elapsedMs() {
-    return state.startedAt ? Date.now() - state.startedAt : 0;
+  function postSession(path, body) {
+    return api('/challenge-sessions/' + path, { method: 'POST', cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ token: token }, body)) });
+  }
+  function rememberToken(value) {
+    token = value;
+    try { if (value) localStorage.setItem(sessionKey, value); else localStorage.removeItem(sessionKey); } catch (_) {}
+  }
+  function remainingMs() {
+    // Both monotonic time and wall time catch suspended/background tabs; the server enforces the deadline.
+    return state.remainingAtSync - Math.max(performance.now() - state.clockAnchor, Date.now() - state.wallAnchor);
+  }
+  function active() { return state.session && state.session.status === 'ACTIVE' && !state.timeUp; }
+  function saveDraft() {
+    if (!active() || state.submitting || !state.editor) return Promise.resolve();
+    if (state.draftPending) return state.draftPending;
+    var code = sourceCode(), ordinal = state.session.ordinal;
+    if (code === state.savedCode || code.length > 100000) return Promise.resolve();
+    var report = activity ? activity.snapshot() : null;
+    if (report) report.events = report.events.filter(function (e) { return /^(bulk-|unobserved-|paste-observed|.*-blocked$)/.test(e.kind); }).slice(-100);
+    state.draftPending = postSession('draft', { ordinal: ordinal, revision: ++state.revision, sourceCode: code, editorActivity: report })
+      .then(function (r) {
+        if (!r.ok) throw new Error('Draft not saved');
+        if (state.session.ordinal === ordinal) { state.savedCode = code; el('editorHint').textContent = 'clock running · draft saved'; }
+      }).catch(function () { if (active()) el('editorHint').textContent = 'draft not saved · check your connection'; })
+      .finally(function () { state.draftPending = null; });
+    return state.draftPending;
+  }
+
+  function applySession(session) {
+    if (disposed) return;
+    var changed = !state.session || state.session.ordinal !== session.ordinal || !activity;
+    var sameClock = state.startedAt === session.startedAt;
+    state.session = session;
+    state.startedAt = session.startedAt;
+    var remaining = Math.max(0, Date.parse(session.expiresAt) - Date.parse(session.serverNow));
+    // A response must not add time to an already running clock.
+    state.remainingAtSync = sameClock ? Math.min(remaining, Math.max(0, remainingMs())) : remaining;
+    state.clockAnchor = performance.now(); state.wallAnchor = Date.now();
+    state.timeUp = session.status !== 'ACTIVE' || state.remainingAtSync <= 0;
+    el('sessionProgress').textContent = 'Question ' + session.ordinal + ' · ' + session.submittedAnswers + ' answers submitted';
+    if (session.status !== 'ACTIVE') {
+      stopClock(); state.submitted = true;
+      if (activity) activity.dispose(); activity = null;
+      state.editor.updateOptions({ readOnly: true });
+      el('runBtn').disabled = true;
+      el('submitBtn').disabled = false; el('submitBtn').textContent = 'View challenge summary';
+      el('editorHint').textContent = session.reason === 'RESET' ? 'session closed' : 'challenge complete';
+      state.secondsLeft = Math.ceil(remaining / 1000); renderTimer();
+      showCompletion(session); loadLeaderboard(); loadStats(); return;
+    }
+    state.submitted = false;
+    el('editorHost').classList.remove('locked');
+    if (changed) {
+      if (activity) activity.dispose();
+      state.question = session.question; renderQuestion();
+      state.editor.setValue(session.draftCode == null ? session.question.starterCode || '' : session.draftCode);
+      state.savedCode = sourceCode(); state.revision = session.draftRevision;
+      activity = createActivity(portal, state.editor, session.question.slug, { challengeToken: token, ordinal: session.ordinal });
+      el('runOutput').hidden = true; el('runStatus').textContent = '';
+    }
+    state.editor.updateOptions({ readOnly: state.timeUp });
+    el('submitBtn').disabled = state.timeUp; el('submitBtn').textContent = 'Submit & next question';
+    el('runBtn').disabled = state.timeUp || !state.question.samples.length;
+    if (state.timeUp) timeUp(); else startClock();
   }
 
   // ---------------------------------------------------------------- timer
@@ -64,16 +148,13 @@ function bootstrapChallenge(createActivity) {
   function startClock() {
     if (state.ticking || state.timeUp || state.submitted || disposed) return;
     state.ticking = true;
-    state.startedAt = Date.now();
     var hint = el('editorHint');
     if (hint) hint.textContent = 'clock running';
-    timerId = setInterval(function () {
-      if (!state.submitted && state.secondsLeft > 0) {
-        state.secondsLeft--;
-        renderTimer();
-        if (state.secondsLeft === 0) timeUp();
-      }
-    }, 1000);
+    function tick() {
+      state.secondsLeft = Math.max(0, Math.ceil(remainingMs() / 1000)); renderTimer();
+      if (state.secondsLeft === 0) timeUp();
+    }
+    timerId = setInterval(tick, 250); tick();
   }
 
   function timeUp() {
@@ -83,35 +164,17 @@ function bootstrapChallenge(createActivity) {
     if (host) host.classList.add('locked');
     if (state.editor) state.editor.updateOptions({ readOnly: true });
     var hint = el('editorHint');
-    if (hint) hint.textContent = 'time is up - submit your answer';
+    if (hint) hint.textContent = 'time is up · finishing challenge';
+    el('runBtn').disabled = true; el('submitBtn').disabled = true;
+    finishSession();
   }
 
   // ------------------------------------------------------------- question
-  function loadQuestion() {
-    var wanted = new URLSearchParams(location.search).get('q');
-    function randomQuestion() {
-      return api('/questions', { cache: 'no-store' });
-    }
-    var request = wanted
-      ? api('/questions/' + encodeURIComponent(wanted)).then(function (r) {
-          return r.status === 404 ? randomQuestion() : r;
-        })
-      : randomQuestion();
-    return request.then(function (r) {
-      if (!r.ok) throw new Error('question not found');
-      state.question = r.body;
-      renderQuestion();
-      return r.body;
-    });
-  }
-
   function renderQuestion() {
     var q = state.question;
     el('problemTitle').textContent = q.title;
     el('problemDifficulty').textContent = 'difficulty ' + q.difficulty + '/10';
     el('problemPrompt').textContent = q.prompt;
-    state.secondsLeft = q.timeLimitSeconds;
-    renderTimer();
 
     var select = el('sampleSelect');
     select.innerHTML = '';
@@ -131,7 +194,7 @@ function bootstrapChallenge(createActivity) {
   }
 
   // --------------------------------------------------------------- editor
-  function initEditor(starterCode) {
+  function initEditor(starterCode, ready) {
     if (disposed) return;
     require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
     require(['vs/editor/editor.main'], function () {
@@ -165,11 +228,10 @@ function bootstrapChallenge(createActivity) {
         insertSpaces: true,          // never mix tabs and spaces into a submission
         renderWhitespace: 'none',
         contextmenu: false,
-        dragAndDrop: false
+        dragAndDrop: false,
+        readOnly: true
       });
-      activity = createActivity(portal, state.editor, state.question.slug);
-      // The clock starts on the first keystroke, exactly as the design intends.
-      state.editor.onDidChangeModelContent(startClock);
+      ready();
     });
   }
 
@@ -179,6 +241,7 @@ function bootstrapChallenge(createActivity) {
 
   // ------------------------------------------------------------------ run
   function runSample() {
+    if (!active()) return;
     var q = state.question;
     var idx = parseInt(el('sampleSelect').value, 10) || 0;
     var sample = (q.samples || [])[idx];
@@ -196,6 +259,7 @@ function bootstrapChallenge(createActivity) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slug: q.slug, sourceCode: sourceCode(), stdin: sample.stdin })
     }).then(function (r) {
+      if (!active() || state.question !== q) return;
       btn.disabled = false;
       var body = r.body || {};
       var got = (body.stdout || '').replace(/\s+$/, '');
@@ -210,6 +274,7 @@ function bootstrapChallenge(createActivity) {
         '\n\nyour output:\n' + (got || '(nothing)') +
         (body.stderr ? '\n\nstderr:\n' + body.stderr : '');
     }).catch(function () {
+      if (!active() || state.question !== q) return;
       btn.disabled = false;
       status.className = 'run-status bad';
       status.textContent = 'could not reach the judge';
@@ -247,7 +312,12 @@ function bootstrapChallenge(createActivity) {
       el('submitBtn').focus();
     }
 
-    el('submitBtn').addEventListener('click', function (e) { e.preventDefault(); openModal(); });
+    el('submitBtn').addEventListener('click', function (e) {
+      e.preventDefault();
+      if (state.timeUp && !state.submitted) { finishSession(); return; }
+      if (active()) { submitAnswer(); return; }
+      openModal();
+    });
     el('modalClose').addEventListener('click', closeModal);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
     overlay.addEventListener('keydown', function (e) {
@@ -273,7 +343,7 @@ function bootstrapChallenge(createActivity) {
     function refresh() {
       var valid = fieldsOk();
       reveal.disabled = state.submitting || !valid;
-      reveal.textContent = valid ? 'Submit answer' : 'Enter your details';
+      reveal.textContent = valid ? 'Start 10-minute challenge' : 'Enter your details';
     }
     ['firstNameInput', 'lastNameInput', 'emailInput', 'phoneInput']
       .forEach(function (id) {
@@ -293,7 +363,6 @@ function bootstrapChallenge(createActivity) {
     };
     el('shareBtn').addEventListener('click', function () {
       if (!state.submitted) return;
-      shareUrl.searchParams.set('q', state.question.slug);
       var linkedInUrl = 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(shareUrl.href);
       el('linkedInShare').href = linkedInUrl;
       el('shareActions').hidden = false;
@@ -331,69 +400,66 @@ function bootstrapChallenge(createActivity) {
       if (!event.persisted) releaseBadge();
     }, { signal: requests.signal });
 
-    function submissionError(message) {
-      state.submitting = false;
-      if (state.editor) state.editor.updateOptions({ readOnly: state.timeUp });
-      formStatus.textContent = message;
-      show(form);
-      refresh();
+    showCompletion = function (session) {
+      var end = session.finishedAt || session.expiresAt;
+      el('badgeTime').textContent = fmtClock(Math.floor(Math.max(0, Math.min(600000,
+        Date.parse(end) - Date.parse(session.startedAt))) / 1000));
+      el('completionCopy').textContent = session.submittedAnswers + ' answers saved. Thank you for taking the challenge.';
+      show(success); openModal();
+    };
+
+    finishSession = function () {
+      if (disposed || state.submitting || state.submitted) return;
+      state.submitting = true;
+      postSession('finish').then(function (r) {
+        if (!r.ok) throw new Error('Finish not confirmed');
+        applySession(r.body);
+      }).catch(function () {
+        el('editorHint').textContent = 'Time is up. Reconnect to confirm your saved answers.';
+        el('submitBtn').disabled = false; el('submitBtn').textContent = 'Confirm challenge status';
+      }).finally(function () { state.submitting = false; });
+    };
+
+    function submitAnswer() {
+      if (!active() || state.submitting) return;
+      if (remainingMs() <= 0) { timeUp(); return; }
+      if (!sourceCode().trim()) { el('editorHint').textContent = 'Enter your answer before submitting.'; return; }
+      state.submitting = true; state.editor.updateOptions({ readOnly: true });
+      el('submitBtn').disabled = true; el('submitBtn').textContent = 'Saving answer…';
+      var answer = { ordinal: state.session.ordinal, sourceCode: sourceCode(),
+        editorActivity: activity ? activity.snapshot() : null };
+      postSession('answer', answer).then(function (r) {
+        if (!r.ok) throw new Error('Answer not saved');
+        applySession(r.body);
+      }).catch(function () {
+        el('editorHint').textContent = 'Could not confirm your answer. Retry; it will not be counted twice.';
+      }).finally(function () {
+        state.submitting = false;
+        if (active()) {
+          state.editor.updateOptions({ readOnly: false });
+          el('submitBtn').disabled = false; el('submitBtn').textContent = 'Submit & next question';
+        } else if (state.timeUp && !state.submitted) finishSession();
+      });
     }
 
     reveal.addEventListener('click', function () {
-      if (state.submitting || state.submitted || !fieldsOk()) return;
-      if (!state.question || !state.editor || !sourceCode().trim()) {
-        formStatus.textContent = 'Wait for the problem to load and enter your code before submitting.';
-        return;
-      }
-      state.submitting = true;
-      state.editor.updateOptions({ readOnly: true });
-      // Use the exact duration sent to the database; exclude the grading wait.
-      var submittedDurationMs = elapsedMs();
-      formStatus.textContent = '';
-      refresh();
-      show(result);
-      el('resultStatus').textContent = 'Submitting your answer...';
-
-      (activity ? activity.flush() : Promise.resolve()).then(function () {
-        if (disposed) throw new Error('Challenge closed');
-        return api('/submit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            slug: state.question.slug,
-            sourceCode: sourceCode(),
-            fullName: el('firstNameInput').value.trim() + ' ' + el('lastNameInput').value.trim(),
-            email: el('emailInput').value.trim(),
-            phone: el('phoneInput').value.trim(),
-            consent: false,
-            durationMs: submittedDurationMs,
-            sourceCampaign: new URLSearchParams(location.search).get('c') || 'direct',
-            editorActivity: activity ? activity.snapshot() : null,
-            activityToken: activity ? activity.checkpointToken : null
-          })
-        });
+      if (state.submitting || !fieldsOk() || !state.editor) return;
+      state.submitting = true; formStatus.textContent = ''; refresh();
+      if (!token) rememberToken(crypto.randomUUID());
+      postSession('start', {
+        fullName: el('firstNameInput').value.trim() + ' ' + el('lastNameInput').value.trim(),
+        email: el('emailInput').value.trim(), phone: el('phoneInput').value.trim(),
+        sourceCampaign: new URLSearchParams(location.search).get('c') || 'direct'
       }).then(function (r) {
-        if (r.status === 429) {
-          submissionError('You have already submitted today. Come back tomorrow.');
-          return;
-        }
         if (!r.ok) {
-          submissionError('We could not save your submission. Please check your details and try again.');
+          formStatus.textContent = r.status === 429 ? 'You have already started today’s challenge. Come back tomorrow.'
+            : 'Could not start the challenge. Check your details and try again.';
           return;
         }
-        state.submitted = true;
-        if (activity) activity.dispose();
-        stopClock();
-        state.submitting = false;
-        state.editor.updateOptions({ readOnly: true });
-        el('editorHint').textContent = 'submission saved';
-        el('badgeTime').textContent = fmtClock(Math.floor(submittedDurationMs / 1000));
-        show(success);
-        loadLeaderboard();
-        loadStats();
+        closeModal(); applySession(r.body);
       }).catch(function () {
-        submissionError('We could not confirm your submission. Please try again in a moment.');
-      });
+        formStatus.textContent = 'Could not confirm the start. Retry to resume the same session.';
+      }).finally(function () { state.submitting = false; refresh(); });
     });
   }
 
@@ -448,17 +514,26 @@ function bootstrapChallenge(createActivity) {
     loadLeaderboard();
     loadStats();
 
-    loadQuestion().then(function (q) {
-      initEditor(q.starterCode);
-    }).catch(function () {
-      el('problemTitle').textContent = 'Could not load the problem';
-      el('problemPrompt').textContent = 'We could not load the problem. Please refresh the page and try again.';
+    el('submitBtn').disabled = true; el('runBtn').disabled = true;
+    initEditor('', function () {
+      el('submitBtn').disabled = false;
+      if (!token) return;
+      el('submitBtn').disabled = true;
+      postSession('state').then(function (r) {
+        if (r.status === 404) { rememberToken(null); return; }
+        if (!r.ok) throw new Error('Resume unavailable');
+        applySession(r.body);
+      }).catch(function () {
+        el('editorHint').textContent = 'Could not resume. Refresh to reconnect to your existing session.';
+      }).finally(function () { el('submitBtn').disabled = false; });
     });
+    draftTimer = setInterval(function () { void saveDraft(); }, 5000);
   }
   init();
   return function cleanupChallenge() {
     disposed = true;
     stopClock();
+    if (draftTimer !== null) clearInterval(draftTimer);
     requests.abort();
     releaseBadge();
     if (activity) activity.dispose();
