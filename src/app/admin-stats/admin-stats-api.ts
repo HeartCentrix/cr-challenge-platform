@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { AdminAuth } from '../admin-auth/admin-auth';
 import { environment } from '../../environments/environment';
+import type { EditorActivityReport } from '../challenge/editor-activity';
 
 export interface Bucket { key: string; label: string; count: number; candidatePercentage: number; }
 export interface Overview { totalCandidates: number; totalAttempts: number; basis: string; averageCandidateScore: number; buckets: Bucket[]; }
@@ -24,6 +25,7 @@ export interface CaseResult {
   passed: boolean | null; judgeStatus: string | null; execTimeMs: number | null; memoryKb: number | null; stdout: string | null;
 }
 export interface AttemptDetail {
+  editorActivity?: EditorActivityReport | null;
   summary: AttemptSummary; sourceCode: string; prompt: string; difficulty: number; timeLimitSeconds: number;
   starterCode: string; referenceSolution: string; ipAddress: string; userAgent: string; testcases: CaseResult[];
 }

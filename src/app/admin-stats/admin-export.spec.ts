@@ -91,7 +91,8 @@ describe('Admin exports', () => {
     const noCases = { ...attempt, summary: { ...attempt.summary, id: 9 }, testcases: [] };
     const book = candidateWorkbook(candidate, [detailed, noCases], new AdminTime('Asia/Kolkata'), new Date('2026-09-01T12:00:00Z'));
     const restored = new Workbook(); await restored.xlsx.load(await book.xlsx.writeBuffer());
-    expect(restored.worksheets.map(s => s.name)).toEqual(['Candidate Overview', 'Submissions', 'Code and Questions', 'Test Results', 'Test Case Content']);
+    expect(restored.worksheets.map(s => s.name)).toEqual(['Candidate Overview', 'Submissions', 'Code and Questions', 'Test Results', 'Test Case Content', 'Editor Activity', 'Activity Timeline']);
+    expect(restored.getWorksheet('Editor Activity')!.getCell('G5').value).toBe('Not recorded');
     const history = restored.getWorksheet('Submissions')!;
     expect(history.rowCount).toBe(6);
     expect(history.getCell('F5').value).toEqual(new Date('2026-09-01T17:30:00Z'));
@@ -121,6 +122,26 @@ describe('Admin exports', () => {
     expect(content.getColumn(5).values).toContain('=HYPERLINK("bad")');
     content.eachRow((r, i) => { if (i > 4) expect(r.getCell(5).formula).toBeUndefined(); });
     expect(candidateWorkbook(candidate, []).getWorksheet('Submissions')!.rowCount).toBe(4);
+  });
+
+  it('exports per-attempt activity with local time-zone labels and numeric offsets', async () => {
+    const counts = { copy: 1, cut: 0, paste: 2, drop: 0 };
+    const detailed: AttemptDetail = { ...attempt, editorActivity: {
+      version: 1, questionSlug: 'test', startedAt: '2026-09-01T11:59:00Z', elapsedMs: 60000,
+      question: counts, answer: counts, keydownCount: 10, trustedKeydownCount: 9, syntheticEvents: 1,
+      modelChangeCount: 8, unexplainedChangeCount: 1, observedPasteCount: 1,
+      insertedCharacters: 100, deletedCharacters: 3, droppedEvents: 0,
+      events: [{ offsetMs: 1000, kind: 'key-character', area: 'answer', trusted: true }],
+    } };
+    const book = candidateWorkbook(candidate, [detailed], new AdminTime('Asia/Kolkata'), new Date('2026-09-01T12:00:00Z'), '2026-09-01');
+    const restored = new Workbook(); await restored.xlsx.load(await book.xlsx.writeBuffer());
+    const timeline = restored.getWorksheet('Activity Timeline')!;
+    expect(timeline.getCell('A5').value).toBe(10);
+    expect(timeline.getCell('B5').value).toEqual(new Date('2026-09-01T17:29:00Z'));
+    expect(timeline.getCell('C5').value).toBe('UTC+05:30');
+    expect(timeline.getCell('D5').value).toBe(1000);
+    expect(restored.getWorksheet('Editor Activity')!.getCell('E5').value).toBe(2);
+    expect(() => candidateWorkbook(candidate, [detailed], new AdminTime('Asia/Kolkata'), new Date(), '2026-09-02')).toThrow();
   });
 
   it('creates a formatted table workbook with literal text, typed values and exact filter metadata', async () => {

@@ -4,7 +4,7 @@
  * countdown, running against samples, scoring, the leaderboard and the ticker.
  * The visual language is untouched; only the wiring is new.
  */
-function bootstrapChallenge() {
+function bootstrapChallenge(createActivity) {
   'use strict';
 
   var API = window.__CHALLENGE_API_BASE__ || '/api/v1';
@@ -15,6 +15,7 @@ function bootstrapChallenge() {
   var requests = new AbortController();
   var timerId = null;
   var releaseBadge = function () {};
+  var activity = null;
 
   var state = {
     question: null,
@@ -109,9 +110,6 @@ function bootstrapChallenge() {
     el('problemTitle').textContent = q.title;
     el('problemDifficulty').textContent = 'difficulty ' + q.difficulty + '/10';
     el('problemPrompt').textContent = q.prompt;
-    el('problemMeta').textContent =
-      'One problem. ' + Math.round(q.timeLimitSeconds / 60) + ' minutes. Show us how you solve it.';
-
     state.secondsLeft = q.timeLimitSeconds;
     renderTimer();
 
@@ -165,8 +163,11 @@ function bootstrapChallenge() {
         automaticLayout: true,
         tabSize: 4,
         insertSpaces: true,          // never mix tabs and spaces into a submission
-        renderWhitespace: 'none'
+        renderWhitespace: 'none',
+        contextmenu: false,
+        dragAndDrop: false
       });
+      activity = createActivity(portal, state.editor, state.question.slug);
       // The clock starts on the first keystroke, exactly as the design intends.
       state.editor.onDidChangeModelContent(startClock);
     });
@@ -332,6 +333,7 @@ function bootstrapChallenge() {
 
     function submissionError(message) {
       state.submitting = false;
+      if (state.editor) state.editor.updateOptions({ readOnly: state.timeUp });
       formStatus.textContent = message;
       show(form);
       refresh();
@@ -344,6 +346,7 @@ function bootstrapChallenge() {
         return;
       }
       state.submitting = true;
+      state.editor.updateOptions({ readOnly: true });
       // Use the exact duration sent to the database; exclude the grading wait.
       var submittedDurationMs = elapsedMs();
       formStatus.textContent = '';
@@ -362,7 +365,8 @@ function bootstrapChallenge() {
           phone: el('phoneInput').value.trim(),
           consent: false,
           durationMs: submittedDurationMs,
-          sourceCampaign: new URLSearchParams(location.search).get('c') || 'direct'
+          sourceCampaign: new URLSearchParams(location.search).get('c') || 'direct',
+          editorActivity: activity ? activity.snapshot() : null
         })
       }).then(function (r) {
         if (r.status === 429) {
@@ -374,6 +378,7 @@ function bootstrapChallenge() {
           return;
         }
         state.submitted = true;
+        if (activity) activity.dispose();
         stopClock();
         state.submitting = false;
         state.editor.updateOptions({ readOnly: true });
@@ -448,6 +453,7 @@ function bootstrapChallenge() {
     stopClock();
     requests.abort();
     releaseBadge();
+    if (activity) activity.dispose();
     if (state.editor) {
       var model = state.editor.getModel();
       state.editor.dispose();

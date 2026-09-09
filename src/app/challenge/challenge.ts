@@ -1,8 +1,9 @@
 import { AfterViewInit, ChangeDetectionStrategy, Component, NgZone, OnDestroy, inject } from '@angular/core';
+import { ActivityEditor, EditorActivity } from './editor-activity';
 
 declare global {
   interface Window {
-    bootstrapChallenge: () => (() => void);
+    bootstrapChallenge: (factory: (portal: HTMLElement, editor: ActivityEditor, slug: string) => EditorActivity) => (() => void);
     buildChallengeMap: () => void;
   }
 }
@@ -48,7 +49,7 @@ export class Challenge implements AfterViewInit, OnDestroy {
         ]);
         if (this.destroyed) return;
         window.buildChallengeMap();
-        this.cleanup = window.bootstrapChallenge();
+        this.cleanup = window.bootstrapChallenge((portal, editor, slug) => new EditorActivity(portal, editor, slug));
       } catch {
         if (this.destroyed) return;
         const title = document.getElementById('problemTitle');

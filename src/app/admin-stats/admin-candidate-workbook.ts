@@ -27,6 +27,10 @@ export function candidateWorkbook(candidate: CandidateDetail, attempts: AttemptD
   const content = reportSheet(book, stamp, 'Test Case Content', ['Attempt ID', 'Test case ID', 'Content', 'Part', 'Text'], [14, 16, 22, 10, 110],
     'Complete input, expected output and candidate output. Join numbered parts in order, without adding separators.');
 
+  const activitySummary = reportSheet(book, stamp, 'Editor Activity', ['Attempt ID', 'Area / metric', 'Copy', 'Cut', 'Paste', 'Drop', 'Value'],
+    [14, 40, 12, 12, 12, 12, 60], 'Unverified client observations, not proof of cheating. Missing telemetry is not zero.');
+  const activityEvents = reportSheet(book, stamp, 'Activity Timeline', ['Attempt ID', 'Tracking started (local)', 'UTC offset', 'Offset (ms)', 'Area', 'Event', 'Browser-trusted'],
+    [14, 26, 15, 18, 15, 30, 20], 'Client clock start plus monotonic offset. No literal keys or clipboard contents; up to 5,000 events per attempt.');
   const p = candidate.performance;
   const profile: CellValue[][] = [
     ['Candidate', candidate.fullName || 'Unnamed candidate'], ['Candidate ID', candidate.id], ['Email', candidate.email],
@@ -63,6 +67,22 @@ export function candidateWorkbook(candidate: CandidateDetail, attempts: AttemptD
   }
   for (const a of attempts) {
     const s = a.summary;
+    const activity = a.editorActivity;
+    if (!activity) activitySummary.addRow([s.id, 'Recording status', null, null, null, null, 'Not recorded']);
+    else {
+      for (const area of ['question', 'answer'] as const) {
+        const c = activity[area];
+        activitySummary.addRow([s.id, area + ' clipboard attempts', c.copy, c.cut, c.paste, c.drop]);
+      }
+      for (const key of ['keydownCount', 'trustedKeydownCount', 'modelChangeCount', 'unexplainedChangeCount', 'observedPasteCount', 'syntheticEvents', 'insertedCharacters', 'deletedCharacters', 'droppedEvents'] as const) {
+        activitySummary.addRow([s.id, key, null, null, null, null, activity[key]]);
+      }
+      for (const event of activity.events) {
+        const row = activityEvents.addRow([s.id, time.excelDate(activity.startedAt), time.parts(activity.startedAt)?.offset,
+          event.offsetMs, event.area, event.kind, event.trusted === null ? 'Not applicable' : event.trusted ? 'Yes' : 'No']);
+        row.getCell(2).numFmt = dateFormat;
+      }
+    }
     const r = submissions.addRow([s.id, s.title, s.questionId, s.slug, s.language, time.excelDate(s.submittedAt),
       time.parts(s.submittedAt)?.offset, elapsed(s.durationMs), s.testcasesPassed, s.testcasesTotal, percent(s.passPercentage),
       s.score, s.speedBonus, s.judgeStatus, a.difficulty, a.timeLimitSeconds, a.ipAddress, a.userAgent, a.testcases.length]);

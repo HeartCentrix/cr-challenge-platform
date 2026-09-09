@@ -51,6 +51,27 @@
         <h3>Problem statement</h3><p class="muted">Question content reflects the current question bank; submission code and results are saved attempt records.</p><pre>{{ attempt.value().prompt }}</pre>
         <p>Difficulty: {{ attempt.value().difficulty }}/10 · Time limit: {{ attempt.value().timeLimitSeconds }} seconds</p>
         <h3>Submitted code</h3><pre id="submittedCode">{{ attempt.value().sourceCode }}</pre>
+        <h3>Editor activity</h3>
+        <p class="muted">Client-reported activity for this question and submitted answer. Browser controls can be bypassed. Unexplained changes may include editor commands, formatting or assistive input; these signals are not proof of cheating.</p>
+        @if (attempt.value().editorActivity; as activity) {
+          <dl class="info">
+            <div><dt>Question copy / cut / paste / drop attempts</dt><dd>{{ activity.question.copy }} / {{ activity.question.cut }} / {{ activity.question.paste }} / {{ activity.question.drop }}</dd></div>
+            <div><dt>Answer copy / cut / paste / drop attempts</dt><dd>{{ activity.answer.copy }} / {{ activity.answer.cut }} / {{ activity.answer.paste }} / {{ activity.answer.drop }}</dd></div>
+            <div><dt>Editor keydown events</dt><dd>{{ activity.keydownCount }} ({{ activity.trustedKeydownCount }} browser-trusted)</dd></div>
+            <div><dt>Model changes / unexplained changes</dt><dd>{{ activity.modelChangeCount }} / {{ activity.unexplainedChangeCount }}</dd></div>
+            <div><dt>Paste operations observed inside editor</dt><dd>{{ activity.observedPasteCount }}</dd></div>
+            <div><dt>Synthetic event observations</dt><dd>{{ activity.syntheticEvents }}</dd></div>
+            <div><dt>Characters inserted / deleted</dt><dd>{{ activity.insertedCharacters }} / {{ activity.deletedCharacters }}</dd></div>
+            <div><dt>Tracking started (client clock)</dt><dd>{{ time.format(activity.startedAt) }}</dd></div>
+          </dl>
+          <details><summary>Activity timeline (first 100 events)</summary>
+            <p class="muted">Offsets are milliseconds since tracking began. Key categories only; literal keys and clipboard contents are not collected. Excel includes the full retained timeline.</p>
+            <p>{{ activity.events.length }} events retained; {{ activity.droppedEvents }} additional events omitted by the 5,000-event limit. Counters continue after this limit.</p>
+            <table><thead><tr><th>Offset (ms)</th><th>Area</th><th>Event</th><th>Browser-trusted</th></tr></thead><tbody>
+              @for (event of activity.events.slice(0, 100); track $index) { <tr><td>{{ event.offsetMs }}</td><td>{{ event.area }}</td><td>{{ event.kind }}</td><td>{{ event.trusted === null ? 'Not applicable' : event.trusted ? 'Yes' : 'No' }}</td></tr> }
+            </tbody></table>
+          </details>
+        } @else { <p>Editor activity was not recorded for this submission.</p> }
         <details><summary>Starter code</summary><pre>{{ attempt.value().starterCode }}</pre></details>
         <details><summary>Reference solution · admin only</summary><pre>{{ attempt.value().referenceSolution }}</pre></details>
         <details><summary>Submission metadata</summary><dl class="info"><div><dt>IP address</dt><dd>{{ attempt.value().ipAddress || 'Not recorded' }}</dd></div><div><dt>User agent</dt><dd>{{ attempt.value().userAgent || 'Not recorded' }}</dd></div></dl></details>
