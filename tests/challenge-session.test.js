@@ -7,8 +7,8 @@ const path = require('node:path');
 const settle = () => new Promise(resolve => setImmediate(resolve));
 
 function setup(saved = null) {
-  const nodes = new Map(), calls = [], timers = new Map();
-  let now = 0, timerId = 0, server = saved, stored = saved ? 'session-token' : null;
+  const nodes = new Map(), calls = [], posts = [], timers = new Map();
+  let now = 0, timerId = 0, tokenId = 0, server = saved, stored = saved ? 'session-token' : null;
   function node(id) {
     if (nodes.has(id)) return nodes.get(id);
     const classes = new Set(), listeners = {};
@@ -30,7 +30,7 @@ function setup(saved = null) {
   const requireMonaco = (_modules, ready) => ready(); requireMonaco.config = () => {};
   class ClockDate extends Date { static now() { return 1700000000000 + now; } }
   const context = { console, URL, URLSearchParams, AbortController, Date: ClockDate, performance: { now: () => now },
-    crypto: { randomUUID: () => 'session-token' }, location: { search: '' },
+    crypto: { randomUUID: () => 'fresh-token-' + ++tokenId }, location: { search: '' },
     localStorage: { getItem: () => stored, setItem: (_k,v) => { stored = v; }, removeItem: () => { stored = null; } },
     setInterval: (fn, ms) => { timers.set(++timerId, { fn, ms }); return timerId; },
     clearInterval: id => timers.delete(id), setTimeout, clearTimeout,
@@ -40,13 +40,14 @@ function setup(saved = null) {
     fetch: async (url, options) => {
       const name = url.split('/').pop(); calls.push(name);
       const body = options?.body ? JSON.parse(options.body) : {};
+      posts.push({ name, body });
       let response = {};
       if (name.startsWith('leaderboard')) response = [];
       else if (name === 'stats') response = { attempts: 0 };
       else {
         if (name === 'start') server = { status: 'ACTIVE', startedAt: stamp(now), expiresAt: stamp(now + 600000),
           ordinal: 1, submittedAnswers: 0, question: question(1), draftCode: null, draftRevision: 0 };
-        if (name === 'answer') server = { ...server, ordinal: 2, submittedAnswers: 1, question: question(2), draftCode: null };
+        if (name === 'answer' && server.status === 'ACTIVE') server = { ...server, ordinal: 2, submittedAnswers: 1, question: question(2), draftCode: null };
         if (name === 'draft') { server.draftCode = body.sourceCode; server.draftRevision = body.revision; }
         if (name === 'finish') server = { ...server, status: 'FINISHED', reason: 'TIME_UP', finishedAt: server.expiresAt, question: null };
         response = { ...server, serverNow: stamp(now) };
@@ -60,7 +61,9 @@ function setup(saved = null) {
     tracking.push({ slug, binding });
     return { dispose() {}, snapshot: () => ({ questionSlug: slug, events: [] }) };
   });
-  return { nodes, calls, editor, tracking, cleanup, get server() { return server; },
+  return { nodes, calls, posts, editor, tracking, cleanup, get server() { return server; }, get storedToken() { return stored; },
+    reset() { server = { ...server, status: 'FINISHED', reason: server.status === 'ACTIVE' ? 'RESET' : server.reason,
+      finishedAt: server.finishedAt || stamp(now), question: null, restartAllowed: true }; },
     async start() { for (const id of ['firstNameInput','lastNameInput','emailInput','phoneInput']) node(id).value = 'test'; node('revealBtn').click(); await settle(); },
     async advance(ms) { now += ms; for (const timer of [...timers.values()]) timer.fn(); await settle(); },
   };
@@ -97,4 +100,48 @@ test('changed draft resumes and expiry locks input and shows time, never a score
   assert.match(resumed.nodes.get('completionCopy').textContent, /answers saved/);
   assert.equal(resumed.calls.filter(c => c === 'finish').length, 1);
   resumed.cleanup();
+});
+
+test('reloading after reset discards the finished token and starts a fresh ten-minute attempt', async () => {
+  const first = setup(); await first.start(); first.reset(); first.cleanup();
+  const app = setup(first.server); await settle();
+  assert.equal(app.storedToken, null);
+  assert.equal(app.nodes.get('submitBtn').textContent, 'Start challenge');
+  assert.equal(app.editor.readonly, true);
+  assert.equal(app.nodes.get('timer').textContent, '10:00');
+  await app.start();
+  assert.notEqual(app.posts.find(p => p.name === 'start').body.token, 'session-token');
+  assert.equal(app.server.status, 'ACTIVE');
+  assert.equal(app.editor.readonly, false);
+  app.cleanup();
+});
+
+test('summary checks reset eligibility before clearing the token of an already completed attempt', async () => {
+  const first = setup(); await first.start(); await first.advance(610000); first.cleanup();
+  const app = setup({ ...first.server, restartAllowed: false }); await settle();
+  app.nodes.get('submitBtn').click(); await settle();
+  assert.equal(app.storedToken, 'session-token');
+  assert.equal(app.nodes.get('submitBtn').textContent, 'View challenge summary');
+  app.reset();
+  app.nodes.get('submitBtn').click(); await settle();
+  assert.equal(app.storedToken, null);
+  assert.equal(app.nodes.get('modalForm').hidden, false);
+  await app.start();
+  assert.equal(app.server.status, 'ACTIVE');
+  assert.equal(app.nodes.get('timer').textContent, '10:00');
+  app.cleanup();
+});
+
+test('a reset discovered while submitting an active attempt returns to the start flow', async () => {
+  const app = setup(); await app.start();
+  app.editor.code = 'old answer'; app.reset();
+  app.nodes.get('submitBtn').click(); await settle();
+  assert.equal(app.storedToken, null);
+  assert.equal(app.editor.code, '');
+  assert.equal(app.nodes.get('submitBtn').textContent, 'Start challenge');
+  assert.equal(app.server.submittedAnswers, 0);
+  await app.start();
+  assert.equal(app.posts.filter(p => p.name === 'start')[1].body.token, 'fresh-token-2');
+  assert.equal(app.editor.readonly, false);
+  app.cleanup();
 });

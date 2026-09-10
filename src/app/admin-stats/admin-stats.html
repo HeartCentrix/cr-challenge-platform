@@ -32,7 +32,11 @@
           <tbody>
             @for (row of rows(); track row.id) {
               <tr tabindex="0" [attr.aria-label]="'View ' + row.fullName + ' challenge details'" (click)="openCandidate($event, row.id)" (keydown.enter)="openCandidate($event, row.id)">
-                <td><a [routerLink]="['/stats-admin/candidates', row.id]">{{ row.fullName || 'Unnamed candidate' }}</a><small>#{{ row.id }}</small></td>
+                <td><a [routerLink]="['/stats-admin/candidates', row.id]">{{ row.fullName || 'Unnamed candidate' }}</a><small>#{{ row.id }}</small>
+                  @if (row.aiMarkerDetected === true) {
+                    <small class="ai-marker" title="Hidden marker found in a submitted answer within the selected dates and snapshot. Review for possible AI assistance; not proof of cheating.">AI-used</small>
+                  }
+                </td>
                 <td>{{ row.email }}<small>{{ row.phone || 'No phone' }}</small></td>
                 <td>{{ row.sourceCampaign || 'Not recorded' }}</td>
                 <td class="candidate-region" title="Approximate location of the latest submission IP within the selected dates">{{ row.region || 'Unknown' }}</td>

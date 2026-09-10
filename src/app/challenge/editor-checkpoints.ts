@@ -23,7 +23,7 @@ export class EditorCheckpoints {
     const sourceCode = this.code();
     const activity = this.snapshot();
     // Keep notable events, not thousands of key categories, in periodic checkpoints.
-    activity.events = activity.events.filter(e => /^(bulk-|unobserved-|paste-observed|.*-blocked$)/.test(e.kind)).slice(-100);
+    activity.events = activity.events.filter(e => /^(bulk-|unobserved-|(?:copy|cut|paste)-observed|.*-blocked$)/.test(e.kind)).slice(-100);
     const { elapsedMs, ...stable } = activity;
     return { sourceCode, activity, signature: JSON.stringify([sourceCode, stable]) };
   }

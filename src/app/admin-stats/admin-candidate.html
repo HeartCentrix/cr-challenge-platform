@@ -59,6 +59,15 @@
           </dl>
         }
         <h3>Submitted code</h3><pre id="submittedCode">{{ attempt.value().sourceCode }}</pre>
+        <h3>AI marker check</h3>
+        @if (attempt.value().aiMarkerDetected === true) {
+          <p class="fail" role="status"><strong>AI-used</strong> — Hidden marker found in the submitted code.</p>
+          <p class="muted">This exact marker match is a review signal, not proof of AI use. Copying or deliberately inserting the marker can also produce a match. The score is unchanged.</p>
+        } @else if (attempt.value().aiMarkerDetected === false) {
+          <p class="muted">Marker not found. This does not rule out AI assistance.</p>
+        } @else {
+          <p class="muted">AI marker check unavailable.</p>
+        }
         <h3>Editor activity</h3>
         <p class="muted">Client-reported activity for this question and submitted answer. Browser controls can be bypassed. Unexplained changes may include editor commands, formatting or assistive input; these signals are not proof of cheating.</p>
         @if (attempt.value().editorActivity; as activity) {

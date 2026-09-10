@@ -37,10 +37,13 @@ describe('Editor checkpoint batching', () => {
     code = 'x'.repeat(32001); await sender.flush(); expect(request).not.toHaveBeenCalled();
     code = 'x'.repeat(80);
     report.events = [{ offsetMs: 0, kind: 'key-character', area: 'answer', trusted: true },
-      { offsetMs: 0, kind: 'bulk-unexplained', area: 'answer', trusted: null, inserted: 80, deleted: 0 }];
+      { offsetMs: 0, kind: 'bulk-unexplained', area: 'answer', trusted: null, inserted: 80, deleted: 0 },
+      { offsetMs: 0, kind: 'copy-observed', area: 'question', trusted: true },
+      { offsetMs: 0, kind: 'cut-observed', area: 'answer', trusted: true },
+      { offsetMs: 0, kind: 'paste-observed', area: 'answer', trusted: true }];
     await sender.flush();
     const body = JSON.parse(request.calls.mostRecent().args[1].body);
-    expect(body.activity.events.length).toBe(1); expect(body.activity.events[0].kind).toBe('bulk-unexplained');
+    expect(body.activity.events.map((e: { kind: string }) => e.kind)).toEqual(['bulk-unexplained', 'copy-observed', 'cut-observed', 'paste-observed']);
     expect(Object.keys(body).sort()).toEqual(['activity','sequence','slug','sourceCode','token']);
   });
 });

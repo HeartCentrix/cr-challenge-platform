@@ -18,8 +18,8 @@ export function candidateWorkbook(candidate: CandidateDetail, attempts: AttemptD
     'Results cover the report scope below. Totals are not repeated in test-case rows.');
   const submissions = reportSheet(book, stamp, 'Submissions', ['Attempt ID', 'Challenge', 'Question ID', 'Slug', 'Language', 'Submitted (local)',
     'UTC offset', 'Question time taken', 'Passed', 'Total test cases', 'Pass rate', 'Score', 'Speed bonus', 'Judge status', 'Difficulty', 'Time limit (s)', 'IP address', 'User agent', 'Saved case records',
-    'Session ID', 'Question number', 'Session start (local / offset)', 'Session deadline (local / offset)', 'Session elapsed at answer (ms)', 'Timer scope'],
-    [14, 35, 14, 28, 15, 24, 15, 20, 12, 16, 14, 12, 14, 24, 12, 16, 20, 45, 20, 14, 18, 35, 35, 24, 22],
+    'Session ID', 'Question number', 'Session start (local / offset)', 'Session deadline (local / offset)', 'Session elapsed at answer (ms)', 'Timer scope', 'AI marker check'],
+    [14, 35, 14, 28, 15, 24, 15, 20, 12, 16, 14, 12, 14, 24, 12, 16, 20, 45, 20, 14, 18, 35, 35, 24, 22, 30],
     'One row per submission. Speed bonus is included in score. Time taken is an elapsed duration, not a timestamp.');
   const code = reportSheet(book, stamp, 'Code and Questions', ['Attempt ID', 'Content', 'Part', 'Text'], [14, 24, 10, 110],
     'Source, problem, starter code and reference solution. Long text is split into numbered parts without truncation.');
@@ -49,6 +49,7 @@ export function candidateWorkbook(candidate: CandidateDetail, attempts: AttemptD
     ['Report scope', day ? 'Selected day: ' + day : 'All saved submissions', attempts.length + ' full submission records exported'],
     ['Question content', 'Current question bank', 'Problem statements, inputs and expected outputs are not historical snapshots. Source code, scores and results are saved per submission.'],
     ['Privacy', 'Admin only', 'Contains contact information, submitted code, hidden test cases and reference solutions. Handle securely.'],
+    ['AI marker check', 'Exact hidden-marker match in saved source', 'Review signal, not proof of AI use. Absence does not rule out AI assistance. Scores are unchanged.'],
     ['Missing values', 'Blank cells mean not recorded', 'A recorded zero remains numeric zero. No submissions means empty history sheets.'],
   ];
   profile.forEach(values => {
@@ -100,7 +101,8 @@ export function candidateWorkbook(candidate: CandidateDetail, attempts: AttemptD
       time.parts(s.submittedAt)?.offset, elapsed(s.durationMs), s.testcasesPassed, s.testcasesTotal, percent(s.passPercentage),
       s.score, s.speedBonus, s.judgeStatus, a.difficulty, a.timeLimitSeconds, a.ipAddress, a.userAgent, a.testcases.length,
       a.sessionTiming?.sessionId, a.sessionTiming?.questionNumber, a.sessionTiming ? time.format(a.sessionTiming.startedAt) : null,
-      a.sessionTiming ? time.format(a.sessionTiming.expiresAt) : null, a.sessionTiming?.elapsedMs, a.sessionTiming ? 'Global 10-minute session' : 'Legacy question timer']);
+      a.sessionTiming ? time.format(a.sessionTiming.expiresAt) : null, a.sessionTiming?.elapsedMs, a.sessionTiming ? 'Global 10-minute session' : 'Legacy question timer',
+      a.aiMarkerDetected === true ? 'AI-used' : a.aiMarkerDetected === false ? 'Marker not found' : 'Not checked']);
     r.getCell(6).numFmt = dateFormat; r.getCell(8).numFmt = '[h]:mm:ss'; r.getCell(11).numFmt = '0.00%';
     r.getCell(12).numFmt = r.getCell(13).numFmt = '0.00';
     textRows(code, [s.id], 'Submitted code', a.sourceCode);

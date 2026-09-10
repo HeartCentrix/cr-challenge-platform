@@ -9,6 +9,7 @@ section{background:var(--surface);border:1px solid var(--border);border-radius:8
 @media(max-width:1100px){.heading{align-items:flex-start}.totals{gap:14px}.totals>div{flex-direction:column;align-items:flex-start;gap:5px}.totals strong{font-size:20px}main{padding:18px}}
 @media(max-width:700px){main{padding:12px}.heading{gap:12px;margin-bottom:14px;flex-wrap:wrap}h1{font-size:22px}.totals{gap:18px}.totals>div{gap:4px;padding-left:9px}.totals span{font-size:9px}.totals strong{font-size:17px}.workspace{padding-right:38px}.breakdown-panel{width:min(var(--panel-width),calc(100% - 20px));box-shadow:-14px 0 50px #0008}.candidate-toolbar{padding:12px}.table-title{align-items:flex-start;flex-wrap:wrap}.search{min-width:140px}.filters{gap:6px}.percent-filter{font-size:9px}.table-footer{padding:10px;font-size:9px}.panel-heading{padding:16px}.chart-scroll{padding:0 16px 16px}.resize-note{font-size:8px}.pagination{flex-wrap:wrap}}
 .campaign-filter input{width:160px;min-width:0}
+td .ai-marker{display:inline-block;color:var(--accent);background:var(--selected);border:1px solid var(--accent);border-radius:4px;padding:3px 6px;font-weight:700}
 .region-filter select{width:160px;max-width:100%}.candidate-region{min-width:120px}
 .export-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.export-status{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:11px;color:var(--muted);margin:10px 0}.export-status button{font-size:10px;padding:5px 8px}
 .workspace{transition:padding-right 260ms cubic-bezier(.2,.8,.2,1)}

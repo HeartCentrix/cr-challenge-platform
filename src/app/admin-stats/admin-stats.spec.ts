@@ -65,13 +65,17 @@ describe('AdminStats', () => {
     expect(first.request.params.get('bucket')).toBe('perfect');
     const row = { id: 100, fullName: 'Test Candidate', email: 'test@example.invalid', phone: '', sourceCampaign: 'direct', regionCode: 'TX', region: 'Texas',
       performance: { attemptCount: 2, questionsAttempted: 1, testcasesPassed: 20, testcasesTotal: 20, passPercentage: 100, totalScore: 160, averageScore: 80, durationMs: 5000, lastSubmittedAt: '2026-01-01T00:00:00Z' } };
-    first.flush({ items: [row], total: 2, nextCursor: 100 });
+    first.flush({ items: [{ ...row, aiMarkerDetected: true }], total: 2, nextCursor: 100 });
     fixture.componentInstance.loadMore();
     const second = http.expectOne(r => r.url.endsWith('/candidates'));
     expect(second.request.params.get('afterId')).toBe('100');
     second.flush({ items: [{ ...row, id: 99 }], total: 2, nextCursor: null });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.candidate-region').textContent).toContain('Texas');
+    const flags = fixture.nativeElement.querySelectorAll('.ai-marker');
+    expect(flags.length).toBe(1);
+    expect(flags[0].textContent).toBe('AI-used');
+    expect(flags[0].title).toContain('not proof of cheating');
     expect(fixture.componentInstance.rows().map(r => r.id)).toEqual([100, 99]);
     fixture.componentInstance.loadMore();
     http.expectNone(r => r.url.endsWith('/candidates'));

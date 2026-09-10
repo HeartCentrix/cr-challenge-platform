@@ -23,6 +23,18 @@ const candidate: CandidateDetail = { ...row, sourceCampaign: 'linkedin', consent
   attempts: { items: [attempt.summary], total: 2, page: 0, size: 1 } };
 
 describe('Admin exports', () => {
+  it('exports AI-used flags separately from absent markers and unavailable checks', () => {
+    const statuses = [true, false, undefined];
+    const expected = ['AI-used', 'Marker not found', 'Not checked'];
+    const table = tableWorkbook(statuses.map((flag, i) => ({ ...row, id: i + 1, aiMarkerDetected: flag })), {});
+    const report = candidateWorkbook(candidate, statuses.map((flag, i) => ({ ...attempt,
+      summary: { ...attempt.summary, id: i + 1 }, aiMarkerDetected: flag })));
+    expected.forEach((label, i) => {
+      expect(table.getWorksheet('Candidates')!.getCell(i + 5, 17).text).toBe(label);
+      expect(report.getWorksheet('Submissions')!.getCell(i + 5, 26).text).toBe(label);
+    });
+  });
+
   let exporter: AdminExport;
   let http: HttpTestingController;
   beforeEach(() => {

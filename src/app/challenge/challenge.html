@@ -27,7 +27,7 @@
     <h1>Only <span class="accent">top 5%</span> of Java Developers can complete this challenge</h1>
 
     <p class="subtext" id="problemMeta">Multiple problems. 10 minutes, how many can you solve?</p>
-    <p class="subtext">No Copy and paste allowed</p>
+    <p class="subtext">AI use is allowed, but self-written code is worth more.</p>
 
     <div class="challenge-workspace">
     <div class="problem-head">
@@ -86,6 +86,7 @@
       <button class="modal-close" id="modalClose" aria-label="Close submission dialog">&times;</button>
 
       <div class="modal-body" id="modalForm">
+        <div class="modal-form-fields">
         <h2>Ready for your 10-minute challenge?</h2>
         <p>Enter your details first. Your timer starts when you click Start 10-minute challenge.</p>
         <div class="name-row">
@@ -95,6 +96,7 @@
         <input type="email" id="emailInput" placeholder="Email address" aria-label="Email address" maxlength="255" required>
         <input type="tel" id="phoneInput" placeholder="Phone number" aria-label="Phone number" minlength="7" maxlength="32" required>
         <p id="formStatus" class="notice" role="status"></p>
+        </div>
         <button class="modal-submit" id="revealBtn" disabled>Enter your details</button>
       </div>
 

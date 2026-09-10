@@ -1,9 +1,17 @@
 # Challenge editor activity
 
-Clipboard controls cover the question/prompt, public test-case output, and coding editor only.
-Copy, cut, paste (including OS shortcuts and beforeinput) and drag/drop are blocked.
-Personal-detail inputs, admin screens and sign-in fields keep normal clipboard behaviour.
-Blocked clipboard gestures show inline feedback; there is no persistent notice above the editor.
+Text selection and copy, cut and paste are allowed, including OS shortcuts,
+beforeinput and the editor context menu. Clipboard activity is observed for the
+question/prompt, public test-case output and coding editor without cancelling events
+or changing clipboard contents. Drag/drop remains blocked. Personal-detail inputs,
+admin screens and sign-in fields keep normal clipboard behaviour and are excluded
+from candidate activity tracking.
+
+The page says "AI use is allowed, but self-written code is worth more." This is
+display copy; grading weights have not changed. Clipboard use does not set the
+`AI-used` flag: that flag requires the exact hidden marker in saved submitted code.
+Observed browser-trusted pastes/cuts explain the corresponding model changes;
+their size is recorded without flagging them solely for having few keystrokes.
 
 The report is sent once with `/submit`, not once per key, and stored on the saved attempt.
 It contains separate question/answer clipboard-attempt counters, keydown categories and
