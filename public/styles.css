@@ -267,19 +267,6 @@
     border-radius: 10px;
     padding: 32px 28px 28px;
   }
-  .modal-close{
-    position: absolute;
-    top: 14px;
-    right: 16px;
-    background: none;
-    border: none;
-    color: var(--text-dim);
-    font-size: 22px;
-    line-height: 1;
-    cursor: pointer;
-    padding: 4px;
-  }
-  .modal-close:hover{ color: var(--text); }
   .modal-body h2{
     font-size: 19px;
     margin: 0 0 10px;

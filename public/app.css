@@ -219,22 +219,14 @@ html:has(app-reset-admin-aaron, app-admin-login) #challengePortal{ display: none
   padding: 32px clamp(20px, 4vw, 28px) 24px;
   overflow: hidden;
 }
-.modal-close{
-  top: 8px;
-  right: 8px;
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  z-index: 1;
-}
+.modal:focus{ outline: none; }
 .modal-body{
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 .modal-body h2{
-  padding-right: 32px;
+  padding-right: 0;
   overflow-wrap: anywhere;
 }
 #modalForm:not([hidden]){

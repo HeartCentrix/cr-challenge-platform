@@ -307,6 +307,7 @@ function bootstrapChallenge(createActivity) {
   // --------------------------------------------------------------- submit
   function wireModal() {
     var overlay = el('modalOverlay');
+    var dialog = portal.querySelector('.modal');
     var form = el('modalForm');
     var result = el('modalResult');
     var success = el('modalPass');
@@ -327,7 +328,7 @@ function bootstrapChallenge(createActivity) {
     function openModal() {
       show(currentPanel);
       overlay.classList.add('open');
-      el('modalClose').focus();
+      dialog.focus();
     }
 
     function closeModal() {
@@ -355,7 +356,6 @@ function bootstrapChallenge(createActivity) {
       }
       openModal();
     });
-    el('modalClose').addEventListener('click', closeModal);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
     overlay.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') closeModal();
@@ -364,6 +364,8 @@ function bootstrapChallenge(createActivity) {
           .filter(function (node) { return node.getClientRects().length; });
         var first = focusable[0];
         var last = focusable[focusable.length - 1];
+        if (!first) { e.preventDefault(); return; }
+        if (document.activeElement === dialog) { e.preventDefault(); (e.shiftKey ? last : first).focus(); return; }
         if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
         else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
       }
