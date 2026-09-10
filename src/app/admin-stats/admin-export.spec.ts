@@ -30,7 +30,7 @@ describe('Admin exports', () => {
     const report = candidateWorkbook(candidate, statuses.map((flag, i) => ({ ...attempt,
       summary: { ...attempt.summary, id: i + 1 }, aiMarkerDetected: flag })));
     expected.forEach((label, i) => {
-      expect(table.getWorksheet('Candidates')!.getCell(i + 5, 17).text).toBe(label);
+      expect(table.getWorksheet('Candidates')!.getCell(i + 5, 17).text).toBe(['Yes', 'No', 'Not checked'][i]);
       expect(report.getWorksheet('Submissions')!.getCell(i + 5, 26).text).toBe(label);
     });
   });

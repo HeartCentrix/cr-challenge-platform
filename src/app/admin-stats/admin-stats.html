@@ -28,20 +28,17 @@
         @if (bucket() !== 'all') { <button class="filter-chip" type="button" (click)="selectBucket('all')">Pass rate: {{ label() }} ×</button> }
       </div>
       <div #viewport class="table-scroll" tabindex="0" role="region" aria-label="Candidate table, scroll for more candidates" [attr.aria-busy]="loading()" (scroll)="fillViewport()">
-        <table><thead><tr><th scope="col">Candidate</th><th scope="col">Contact</th><th scope="col">Campaign</th><th scope="col" title="Approximate IP-derived state, not verified residence">Region</th><th scope="col">Challenges</th><th scope="col">Submissions</th><th scope="col">Test cases</th><th scope="col">Pass rate</th><th scope="col">Total score</th><th scope="col">Avg score</th><th scope="col">Total time</th><th scope="col">Last submission</th></tr></thead>
+        <table><thead><tr><th scope="col">Candidate</th><th scope="col">AI-used</th><th scope="col">Contact</th><th scope="col">Campaign</th><th scope="col" title="Approximate IP-derived state, not verified residence">Region</th><th scope="col">Challenges</th><th scope="col">Submissions</th><th scope="col">Pass rate</th><th scope="col" aria-sort="descending">Total score</th><th scope="col">Avg score</th><th scope="col">Total time</th><th scope="col">Last submission</th></tr></thead>
           <tbody>
             @for (row of rows(); track row.id) {
               <tr tabindex="0" [attr.aria-label]="'View ' + row.fullName + ' challenge details'" (click)="openCandidate($event, row.id)" (keydown.enter)="openCandidate($event, row.id)">
                 <td><a [routerLink]="['/stats-admin/candidates', row.id]">{{ row.fullName || 'Unnamed candidate' }}</a><small>#{{ row.id }}</small>
-                  @if (row.aiMarkerDetected === true) {
-                    <small class="ai-marker" title="Hidden marker found in a submitted answer within the selected dates and snapshot. Review for possible AI assistance; not proof of cheating.">AI-used</small>
-                  }
                 </td>
+                <td class="ai-used" [title]="row.aiMarkerDetected ? 'Hidden marker found in a submitted answer within the selected dates and snapshot. Review for possible AI assistance; not proof of cheating.' : 'No hidden marker found within the selected dates and snapshot. This does not rule out AI assistance.'">{{ row.aiMarkerDetected ? 'Yes' : 'No' }}</td>
                 <td>{{ row.email }}<small>{{ row.phone || 'No phone' }}</small></td>
                 <td>{{ row.sourceCampaign || 'Not recorded' }}</td>
                 <td class="candidate-region" title="Approximate location of the latest submission IP within the selected dates">{{ row.region || 'Unknown' }}</td>
                 <td>{{ row.performance.questionsAttempted }}</td><td>{{ row.performance.attemptCount }}</td>
-                <td>{{ row.performance.testcasesPassed }}/{{ row.performance.testcasesTotal }}</td>
                 <td><span class="pass-rate">{{ row.performance.passPercentage === null ? 'N/A' : (row.performance.passPercentage | number:'1.0-2') + '%' }}</span></td>
                 <td>{{ row.performance.totalScore | number:'1.0-2' }}</td><td class="average-score">{{ row.performance.averageScore | number:'1.0-2' }}</td>
                 <td>{{ duration(row.performance.durationMs) }}</td><td>{{ time.date(row.performance.lastSubmittedAt) }}<small>{{ time.clock(row.performance.lastSubmittedAt) }}</small></td>
