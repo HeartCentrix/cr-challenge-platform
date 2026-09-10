@@ -1,6 +1,17 @@
 /* Additions for the live build. Uses the design tokens from styles.css so the
    new controls sit inside the existing visual language rather than beside it. */
 
+/* Candidate-page text only; admin pages are outside this portal. Native text
+   selection is disabled without cancelling focus, typing or editor commands. */
+#challengePortal,
+#challengePortal * {
+  -webkit-user-select: none;
+  user-select: none;
+}
+#challengePortal img {
+  -webkit-user-drag: none;
+}
+
 /* ---------------------------------------------------------------- problem */
 .timer-block{
   position: sticky;
@@ -262,3 +273,6 @@ html:has(app-reset-admin-aaron, app-admin-login) #challengePortal{ display: none
   color: var(--text-dim);
   padding: 14px 0;
 }
+/* Public map exposes aggregate approximate locations, never candidate IPs. */
+#challengePortal footer .geoip-credit { color: #999; text-underline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .map-dot-active { animation: none; } }

@@ -49,8 +49,50 @@
           <div><dt>Last test-case judge status</dt><dd>{{ attempt.value().summary.judgeStatus || 'Not recorded' }}</dd></div>
         </dl>
         <h3>Problem statement</h3><p class="muted">Question content reflects the current question bank; submission code and results are saved attempt records.</p><pre>{{ attempt.value().prompt }}</pre>
-        <p>Difficulty: {{ attempt.value().difficulty }}/10 · Time limit: {{ attempt.value().timeLimitSeconds }} seconds</p>
+        <p>Difficulty: {{ attempt.value().difficulty }}/10 · {{ attempt.value().sessionTiming ? 'Global session limit' : 'Time limit' }}: {{ attempt.value().timeLimitSeconds }} seconds</p>
+        @if (attempt.value().sessionTiming; as timing) {
+          <dl class="info">
+            <div><dt>Challenge session / question</dt><dd>#{{ timing.sessionId }} / {{ timing.questionNumber }}</dd></div>
+            <div><dt>Global timer started</dt><dd>{{ time.format(timing.startedAt) }}</dd></div>
+            <div><dt>Global deadline</dt><dd>{{ time.format(timing.expiresAt) }}</dd></div>
+            <div><dt>Session elapsed at answer</dt><dd>{{ duration(timing.elapsedMs) }}</dd></div>
+          </dl>
+        }
         <h3>Submitted code</h3><pre id="submittedCode">{{ attempt.value().sourceCode }}</pre>
+        <h3>Editor activity</h3>
+        <p class="muted">Client-reported activity for this question and submitted answer. Browser controls can be bypassed. Unexplained changes may include editor commands, formatting or assistive input; these signals are not proof of cheating.</p>
+        @if (attempt.value().editorActivity; as activity) {
+          <dl class="info">
+            <div><dt>Question copy / cut / paste / drop attempts</dt><dd>{{ activity.question.copy }} / {{ activity.question.cut }} / {{ activity.question.paste }} / {{ activity.question.drop }}</dd></div>
+            <div><dt>Answer copy / cut / paste / drop attempts</dt><dd>{{ activity.answer.copy }} / {{ activity.answer.cut }} / {{ activity.answer.paste }} / {{ activity.answer.drop }}</dd></div>
+            <div><dt>Editor keydown events</dt><dd>{{ activity.keydownCount }} ({{ activity.trustedKeydownCount }} browser-trusted)</dd></div>
+            <div><dt>Model changes / unexplained changes</dt><dd>{{ activity.modelChangeCount }} / {{ activity.unexplainedChangeCount }}</dd></div>
+            <div><dt>Mass code inputs / flagged for review</dt><dd>{{ activity.bulkChangeCount ?? 'Not recorded' }} / {{ activity.unexplainedBulkChangeCount ?? 'Not recorded' }}</dd></div>
+            <div><dt>Largest single insertion</dt><dd>{{ activity.largestInsertion ?? 'Not recorded' }} characters</dd></div>
+            <div><dt>Paste operations observed inside editor</dt><dd>{{ activity.observedPasteCount }}</dd></div>
+            <div><dt>Synthetic event observations</dt><dd>{{ activity.syntheticEvents }}</dd></div>
+            <div><dt>Characters inserted / deleted</dt><dd>{{ activity.insertedCharacters }} / {{ activity.deletedCharacters }}</dd></div>
+            <div><dt>Tracking started (client clock)</dt><dd>{{ time.format(activity.startedAt) }}</dd></div>
+          </dl>
+          <details><summary>Activity timeline (first 100 events)</summary>
+            <p class="muted">Offsets are milliseconds since tracking began. Key categories only; literal keys and clipboard contents are not collected. Excel includes the full retained timeline.</p>
+            <p>{{ activity.events.length }} events retained; {{ activity.droppedEvents }} additional events omitted by the 5,000-event limit. Counters continue after this limit.</p>
+            <table><thead><tr><th>Offset (ms)</th><th>Area</th><th>Event</th><th>Inserted / deleted</th><th>Browser-trusted</th></tr></thead><tbody>
+              @for (event of activity.events.slice(0, 100); track $index) { <tr><td>{{ event.offsetMs }}</td><td>{{ event.area }}</td><td>{{ event.kind }}</td><td>{{ event.inserted ?? '—' }} / {{ event.deleted ?? '—' }}</td><td>{{ event.trusted === null ? 'Not applicable' : event.trusted ? 'Yes' : 'No' }}</td></tr> }
+            </tbody></table>
+          </details>
+        } @else { <p>Editor activity was not recorded for this submission.</p> }
+        <h3>Server-received editor checkpoints</h3>
+        <p class="muted">Mass input means 80+ characters in one edit, or within one second with little corresponding typing. Undo/redo and starter loading are excluded. Checkpoints save changed state every 30 seconds; timestamps below are server receipt times. Missing history, gaps or a final mismatch can mean idle time, network failure or unsaved final edits—not cheating.</p>
+        @if (attempt.value().checkpointHistory; as history) {
+          <p>{{ history.checkpoints.length }} checkpoints · Final code matches last checkpoint: {{ history.finalCodeMatches === null ? 'Not recorded' : history.finalCodeMatches ? 'Yes' : 'No — review changes' }} · Intervals over 90 seconds: {{ history.reportingGaps ? 'Yes' : 'No' }}</p>
+          @for (checkpoint of history.checkpoints; track checkpoint.sequence) {
+            <details><summary>Checkpoint {{ checkpoint.sequence }} · {{ time.format(checkpoint.receivedAt) }} · {{ checkpoint.activity.unexplainedBulkChangeCount ?? 0 }} cumulative mass-input flags</summary>
+              <p>{{ checkpoint.activity.elapsedMs }} ms since tracking started · {{ checkpoint.activity.keydownCount }} key events · {{ checkpoint.sourceCode.length }} characters</p>
+              <pre>{{ checkpoint.sourceCode }}</pre>
+            </details>
+          } @empty { <p>No independently saved checkpoints. Activity sent at submission remains client-reported.</p> }
+        } @else { <p>Checkpoints were not recorded.</p> }
         <details><summary>Starter code</summary><pre>{{ attempt.value().starterCode }}</pre></details>
         <details><summary>Reference solution · admin only</summary><pre>{{ attempt.value().referenceSolution }}</pre></details>
         <details><summary>Submission metadata</summary><dl class="info"><div><dt>IP address</dt><dd>{{ attempt.value().ipAddress || 'Not recorded' }}</dd></div><div><dt>User agent</dt><dd>{{ attempt.value().userAgent || 'Not recorded' }}</dd></div></dl></details>
