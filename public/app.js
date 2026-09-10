@@ -499,7 +499,8 @@ function bootstrapChallenge(createActivity) {
       if (!r.ok) throw new Error('Statistics unavailable');
       window.buildChallengeMap(r.body.activityMap || { status: 'unavailable', points: [] });
       var t = el('ticker');
-      if (t) t.textContent = Number(r.body.attempts || 0).toLocaleString();
+      var count = Number(r.body.attempts || 0);
+      if (t) t.textContent = count.toLocaleString();
       var label = portal.querySelector('.ticker-label');
       if (label) label.textContent = 'submissions so far';
     }).catch(function () {
