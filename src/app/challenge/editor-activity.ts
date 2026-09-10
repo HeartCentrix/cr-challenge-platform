@@ -29,7 +29,6 @@ export class EditorActivity {
   private readonly origin = performance.now();
   private active = true;
   private recentInput = -Infinity;
-  private recentClipboardInput = -Infinity;
   private lastValue: string;
   private lastClipboard?: { key: string; channel: string; at: number };
   private burst = { at: -Infinity, inserted: 0, keys: 0, flagged: false };
@@ -51,8 +50,7 @@ export class EditorActivity {
       listen(action, event => {
         const area = this.area(event, action === 'copy' || action === 'cut');
         if (!area) return;
-        if (action === 'drop') this.block(event, area, action, 'clipboard');
-        else this.observeClipboard(event, area, action, 'clipboard');
+        this.block(event, area, action, 'clipboard');
       });
     }
     listen('dragstart', event => { if (this.area(event, true)) event.preventDefault(); });
@@ -60,9 +58,9 @@ export class EditorActivity {
     listen('beforeinput', event => {
       if (this.area(event) !== 'answer' || !this.active) return;
       const input = event as InputEvent;
-      if (/^insertFromPaste/.test(input.inputType)) this.observeClipboard(event, 'answer', 'paste', 'beforeinput');
+      if (/^insertFromPaste/.test(input.inputType)) this.block(event, 'answer', 'paste', 'beforeinput');
       else if (input.inputType === 'insertFromDrop') this.block(event, 'answer', 'drop', 'beforeinput');
-      else if (input.inputType === 'deleteByCut') this.observeClipboard(event, 'answer', 'cut', 'beforeinput');
+      else if (input.inputType === 'deleteByCut') this.block(event, 'answer', 'cut', 'beforeinput');
       else {
         if (event.isTrusted) this.recentInput = performance.now();
         if (input.isComposing) this.record('composition', 'answer', event.isTrusted);
@@ -87,12 +85,14 @@ export class EditorActivity {
     if (target?.closest('#modalOverlay')) return undefined;
     const host = this.portal.querySelector('#editorHost');
     if (target && host?.contains(target)) return 'answer';
+    if (selection && host?.contains(this.portal.ownerDocument.activeElement)) return 'answer';
     const question = '#problemPrompt, #problemTitle, #sampleSelect, #runOutput';
     if (target && this.portal.contains(target) && target.closest(question)) return 'question';
     if (selection) {
       const selected = this.portal.ownerDocument.getSelection();
       if (selected && !selected.isCollapsed && selected.rangeCount) {
         const range = selected.getRangeAt(0);
+        if (host && range.intersectsNode(host)) return 'answer';
         for (const node of this.portal.querySelectorAll(question)) {
           if (range.intersectsNode(node)) return 'question';
         }
@@ -117,15 +117,7 @@ export class EditorActivity {
     const action = modifier && ['c', 'x', 'v'].includes(key) ? ({ c: 'copy', x: 'cut', v: 'paste' } as const)[key as 'c' | 'x' | 'v']
       : event.shiftKey && key === 'insert' ? 'paste' : event.ctrlKey && key === 'insert' ? 'copy'
       : event.shiftKey && key === 'delete' ? 'cut' : undefined;
-    if (action) this.observeClipboard(event, area, action, 'shortcut');
-  }
-
-  private observeClipboard(event: Event, area: 'question' | 'answer', action: 'copy' | 'cut' | 'paste', channel: string) {
-    if (!this.active) return;
-    if (area === 'answer' && action !== 'copy' && event.isTrusted) {
-      this.recentInput = this.recentClipboardInput = performance.now();
-    }
-    this.clipboard(area, action, channel, event.isTrusted, action + '-observed');
+    if (action) this.block(event, area, action, 'shortcut');
   }
 
   private block(event: Event, area: 'question' | 'answer', action: keyof ClipboardCounts, channel: string) {
@@ -164,8 +156,7 @@ export class EditorActivity {
       const sparseTyping = this.burst.inserted > (this.report.trustedKeydownCount - this.burst.keys) * 4 + 20;
       const bulk = inserted >= 80 || (!this.burst.flagged && this.burst.inserted >= 80 && sparseTyping);
       if (bulk) {
-        const knownClipboardInput = now - this.recentClipboardInput < 500;
-        const suspicious = Boolean(unexplained || (sparseTyping && !knownClipboardInput));
+        const suspicious = Boolean(unexplained || sparseTyping);
         this.report.bulkChangeCount!++;
         if (suspicious) this.report.unexplainedBulkChangeCount!++;
         this.burst.flagged = true;

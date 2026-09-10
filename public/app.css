@@ -1,7 +1,16 @@
 /* Additions for the live build. Uses the design tokens from styles.css so the
    new controls sit inside the existing visual language rather than beside it. */
 
-/* Text selection and normal clipboard actions are allowed. */
+/* Candidate-page text cannot be selected. Keep personal-detail inputs usable. */
+#challengePortal,
+#challengePortal * {
+  -webkit-user-select: none;
+  user-select: none;
+}
+#challengePortal #modalOverlay input {
+  -webkit-user-select: text;
+  user-select: text;
+}
 #challengePortal img {
   -webkit-user-drag: none;
 }

@@ -36,7 +36,7 @@ function setup(saved = null) {
     clearInterval: id => timers.delete(id), setTimeout, clearTimeout,
     require: requireMonaco, monaco: { editor: { defineTheme() {}, create: () => editor } },
     window: { addEventListener() {}, buildChallengeMap() {} },
-    document: { getElementById: () => portal, createElement: () => node('option') },
+    document: { getElementById: () => portal, createElement: () => node('option'), addEventListener() {} },
     fetch: async (url, options) => {
       const name = url.split('/').pop(); calls.push(name);
       const body = options?.body ? JSON.parse(options.body) : {};
