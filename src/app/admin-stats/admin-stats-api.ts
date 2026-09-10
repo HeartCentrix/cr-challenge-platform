@@ -19,6 +19,7 @@ export interface CandidateRow { id: number; fullName: string; email: string; pho
 export interface CandidateDetail {
   id: number; fullName: string; email: string; phone: string; consented: boolean; sourceCampaign: string;
   firstSeenAt: string; lastSeenAt: string; performance: Performance; attempts: Page<AttemptSummary>;
+  history?: { day: string | null; previousDay: string | null; nextDay: string | null; asOf: string };
 }
 export interface CaseResult {
   id: number; ordinal: number; sample: boolean; stdin: string | null; expectedOutput: string | null;

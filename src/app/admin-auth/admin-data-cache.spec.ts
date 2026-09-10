@@ -46,6 +46,18 @@ describe('AdminDataCache', () => {
     backend.expectOne(url + '?campaign=direct').flush({ items: [] });
   });
 
+  it('fetches history and attempt details again instead of caching stale results', () => {
+    const http = TestBed.inject(HttpClient), backend = TestBed.inject(HttpTestingController);
+    for (const path of ['/10/history', '/10/attempts/40']) {
+      http.get(url + path, { headers }).subscribe();
+      backend.expectOne(url + path).flush({ status: 'Queued' });
+      let result: any;
+      http.get(url + path, { headers }).subscribe(value => result = value);
+      backend.expectOne(url + path).flush({ status: 'Accepted' });
+      expect(result.status).toBe('Accepted');
+    }
+  });
+
   it('expires private responses earlier when the admin session expires', fakeAsync(() => {
     const cache = TestBed.inject(AdminDataCache), http = TestBed.inject(HttpClient), backend = TestBed.inject(HttpTestingController);
     cache.activate(new Date(Date.now() + 1000).toISOString());
