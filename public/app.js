@@ -15,6 +15,7 @@ function bootstrapChallenge(createActivity) {
   var requests = new AbortController();
   var timerId = null;
   var releaseBadge = function () {};
+  var releaseEditorSelection = function () {};
   var activity = null;
   var draftTimer = null;
   var finishSession = function () {};
@@ -252,8 +253,19 @@ function bootstrapChallenge(createActivity) {
         renderWhitespace: 'none',
         contextmenu: false,
         dragAndDrop: false,
+        selectOnLineNumbers: false,
+        columnSelection: false,
         readOnly: true
       });
+      // Monaco draws its own selections; CSS user-select does not disable them.
+      var clearingSelection = false;
+      var selectionListener = state.editor.onDidChangeCursorSelection(function (event) {
+        if (clearingSelection || (event.selection.isEmpty() && !event.secondarySelections.length)) return;
+        clearingSelection = true;
+        try { state.editor.setPosition(event.selection.getPosition()); }
+        finally { clearingSelection = false; }
+      });
+      releaseEditorSelection = function () { selectionListener.dispose(); };
       ready();
     });
   }
@@ -627,6 +639,7 @@ function bootstrapChallenge(createActivity) {
     if (draftTimer !== null) clearInterval(draftTimer);
     requests.abort();
     releaseBadge();
+    releaseEditorSelection();
     if (activity) activity.dispose();
     if (state.editor) {
       var model = state.editor.getModel();

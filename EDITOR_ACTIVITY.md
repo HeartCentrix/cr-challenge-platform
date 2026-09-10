@@ -1,6 +1,8 @@
 # Challenge editor activity
 
-Native page text selection is disabled. Copy, cut, paste and drag/drop are blocked
+Native page text selection is disabled. Monaco's custom selections are collapsed to
+a single caret, including mouse drags, keyboard selection and additional cursors;
+ordinary cursor movement and typing remain available. Copy, cut, paste and drag/drop are blocked
 for the question/prompt, public test-case output and coding editor throughout the challenge page's lifetime,
 including OS shortcuts and beforeinput. The editor context menu is disabled.
 Blocked clipboard attempts are recorded without reading clipboard contents. Personal-detail inputs,
