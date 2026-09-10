@@ -12,7 +12,7 @@ export function candidateReportFilename(candidate: Pick<CandidateDetail, 'id' | 
 }
 export function candidateTableFilename(filters: Record<string, string | number>, date = new AdminTime().date(new Date())): string {
   const parts: string[] = [];
-  for (const key of ['search', 'campaign', 'region', 'startDate', 'endDate']) {
+  for (const key of ['search', 'campaign', 'startDate', 'endDate']) {
     const value = String(filters[key] ?? '').trim();
     if (value) parts.push(({ startDate: 'from', endDate: 'to' } as Record<string, string>)[key] || key,
       filenamePart(value, key.endsWith('Date') ? 10 : 35) || 'custom');

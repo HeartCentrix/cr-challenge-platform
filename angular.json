@@ -49,8 +49,7 @@
             "assets": [
               {
                 "glob": "**/*",
-                "input": "public",
-                "ignore": ["styles.css", "app.css"]
+                "input": "public"
               }
             ],
             "styles": [
@@ -152,8 +151,7 @@
             "assets": [
               {
                 "glob": "**/*",
-                "input": "public",
-                "ignore": ["styles.css", "app.css"]
+                "input": "public"
               }
             ],
             "styles": [

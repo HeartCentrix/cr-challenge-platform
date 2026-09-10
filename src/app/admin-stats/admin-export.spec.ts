@@ -91,8 +91,7 @@ describe('Admin exports', () => {
     const noCases = { ...attempt, summary: { ...attempt.summary, id: 9 }, testcases: [] };
     const book = candidateWorkbook(candidate, [detailed, noCases], new AdminTime('Asia/Kolkata'), new Date('2026-09-01T12:00:00Z'));
     const restored = new Workbook(); await restored.xlsx.load(await book.xlsx.writeBuffer());
-    expect(restored.worksheets.map(s => s.name)).toEqual(['Candidate Overview', 'Submissions', 'Code and Questions', 'Test Results', 'Test Case Content', 'Editor Activity', 'Activity Timeline', 'Editor Checkpoints']);
-    expect(restored.getWorksheet('Editor Activity')!.getCell('G5').value).toBe('Not recorded');
+    expect(restored.worksheets.map(s => s.name)).toEqual(['Candidate Overview', 'Submissions', 'Code and Questions', 'Test Results', 'Test Case Content']);
     const history = restored.getWorksheet('Submissions')!;
     expect(history.rowCount).toBe(6);
     expect(history.getCell('F5').value).toEqual(new Date('2026-09-01T17:30:00Z'));
@@ -124,39 +123,9 @@ describe('Admin exports', () => {
     expect(candidateWorkbook(candidate, []).getWorksheet('Submissions')!.rowCount).toBe(4);
   });
 
-  it('exports per-attempt activity with local time-zone labels and numeric offsets', async () => {
-    const counts = { copy: 1, cut: 0, paste: 2, drop: 0 };
-    const detailed: AttemptDetail = { ...attempt, editorActivity: {
-      version: 1, questionSlug: 'test', startedAt: '2026-09-01T11:59:00Z', elapsedMs: 60000,
-      question: counts, answer: counts, keydownCount: 10, trustedKeydownCount: 9, syntheticEvents: 1,
-      modelChangeCount: 8, unexplainedChangeCount: 1, observedPasteCount: 1,
-      insertedCharacters: 100, deletedCharacters: 3, droppedEvents: 0,
-      bulkChangeCount: 1, unexplainedBulkChangeCount: 1, largestInsertion: 100,
-      events: [{ offsetMs: 1000, kind: 'bulk-unexplained', area: 'answer', trusted: null, inserted: 100, deleted: 3 }],
-    } };
-    detailed.checkpointHistory = { status: 'recorded', finalCodeMatches: false, reportingGaps: false,
-      checkpoints: [{ sequence: 1, receivedAt: '2026-09-01T11:59:30Z', sourceCode: '=literal code' + 'x'.repeat(31000), activity: detailed.editorActivity! }] };
-    const book = candidateWorkbook(candidate, [detailed], new AdminTime('Asia/Kolkata'), new Date('2026-09-01T12:00:00Z'), '2026-09-01');
-    const restored = new Workbook(); await restored.xlsx.load(await book.xlsx.writeBuffer());
-    const timeline = restored.getWorksheet('Activity Timeline')!;
-    expect(timeline.getCell('A5').value).toBe(10);
-    expect(timeline.getCell('B5').value).toEqual(new Date('2026-09-01T17:29:00Z'));
-    expect(timeline.getCell('C5').value).toBe('UTC+05:30');
-    expect(timeline.getCell('D5').value).toBe(1000);
-    expect(timeline.getCell('H5').value).toBe(100);
-    const checkpoints = restored.getWorksheet('Editor Checkpoints')!;
-    expect(checkpoints.getCell('C5').value).toEqual(new Date('2026-09-01T17:29:30Z'));
-    expect(checkpoints.getCell('D5').value).toBe('UTC+05:30');
-    expect(checkpoints.getCell('H5').value).toBe(1);
-    expect(checkpoints.getCell('J5').formula).toBeUndefined();
-    expect(checkpoints.getCell('J5').text + checkpoints.getCell('J6').text).toBe(detailed.checkpointHistory.checkpoints[0].sourceCode);
-    expect(restored.getWorksheet('Editor Activity')!.getCell('E5').value).toBe(2);
-    expect(() => candidateWorkbook(candidate, [detailed], new AdminTime('Asia/Kolkata'), new Date(), '2026-09-02')).toThrow();
-  });
-
   it('creates a formatted table workbook with literal text, typed values and exact filter metadata', async () => {
-    const rows = [{ ...row, fullName: '=SUM(1,2)', sourceCampaign: 'é\n"campaign"', region: 'Texas', regionCode: 'TX' }];
-    const filters = { campaign: 'é\n"campaign"', region: 'TX', search: 'Example', startDate: '2026-09-01', endDate: '2026-09-02', minPercent: 25, maxPercent: 75, bucket: 'quarter' };
+    const rows = [{ ...row, fullName: '=SUM(1,2)', sourceCampaign: 'é\n"campaign"' }];
+    const filters = { campaign: 'é\n"campaign"', search: 'Example', startDate: '2026-09-01', endDate: '2026-09-02', minPercent: 25, maxPercent: 75, bucket: 'quarter' };
     const book = tableWorkbook(rows, filters, new AdminTime('Asia/Kolkata'), new Date('2026-09-01T20:45:00Z'));
     const restored = new Workbook(); await restored.xlsx.load(await book.xlsx.writeBuffer());
     const sheet = restored.getWorksheet('Candidates')!;
@@ -165,8 +134,6 @@ describe('Admin exports', () => {
     expect(sheet.getCell('J5').value).toBe(0.3); expect(sheet.getCell('J5').numFmt).toBe('0.00%');
     expect(sheet.getCell('N5').value).toEqual(new Date('2026-09-01T17:30:00Z'));
     expect(sheet.getCell('O5').value).toBe('UTC+05:30');
-    expect(sheet.getCell('P5').value).toBe('Texas');
-    expect(restored.getWorksheet('Export Details')!.getColumn(2).values).toContain('TX');
     expect(sheet.getCell('A2').text).toContain('2026-09-02 02:15:00 UTC+05:30');
     expect(sheet.getCell('A2').text).toContain('Asia/Kolkata');
     expect(sheet.views[0].state).toBe('frozen'); expect(sheet.autoFilter).toBeTruthy();
@@ -190,13 +157,12 @@ describe('Admin exports', () => {
     expect(candidateReportFilename({ id: 2, fullName: 'A'.repeat(300) }).length).toBeLessThan(130);
   });
   it('includes every active table filter in the filename and omits internal pagination/snapshot values', () => {
-    const filename = candidateTableFilename({ search: 'Akshat Verma', campaign: 'linkedin', region: 'TX', startDate: '2026-09-01',
+    const filename = candidateTableFilename({ search: 'Akshat Verma', campaign: 'linkedin', startDate: '2026-09-01',
       endDate: '2026-09-09', minPercent: 25, maxPercent: 75, bucket: 'quarter', asOf: 'private-snapshot', afterId: 99 }, '2026-09-09');
     for (const part of ['search_Akshat-Verma', 'campaign_linkedin', 'from_2026-09-01', 'to_2026-09-09', 'pass-25-to-75', 'group-quarter']) {
       expect(filename).toContain(part);
     }
     expect(filename).not.toContain('snapshot');
-    expect(filename).toContain('region_TX');
     expect(filename).not.toContain('afterId');
     expect(candidateTableFilename({ bucket: 'all', minPercent: 0, maxPercent: 100 }, '2026-09-09')).toBe('codereport-all-candidates_2026-09-09.xlsx');
     expect(candidateTableFilename({ search: '../a:b?' }, '2026-09-09')).toContain('search_a-b');

@@ -17,31 +17,29 @@
 
   <main>
     <div class="timer-block">
-      <div class="timer" id="timer">10:00</div>
-      <div class="timer-label">challenge time remaining</div>
+      <div class="timer" id="timer">08:00</div>
+      <div class="timer-label">time remaining</div>
       <span class="dot-live"></span>
     </div>
 
     <p class="eyebrow">Are you in the top 5%?</p>
 
-    <h1>Only <span class="accent">top 5%</span> of Java Developers can complete this challenge</h1>
+    <h1>Only <span class="accent">5%</span> of Java<br>developers can solve this.</h1>
 
-    <p class="subtext" id="problemMeta">Multiple problems. 10 minutes, how many can you solve?</p>
-    <p class="subtext">No Copy and paste allowed</p>
+    <p class="subtext" id="problemMeta">One problem. Show us how you solve it.</p>
 
     <div class="challenge-workspace">
     <div class="problem-head">
-      <span class="problem-difficulty" id="problemDifficulty">10-minute challenge</span>
-      <h2 class="problem-title" id="problemTitle">Ready to take the challenge?</h2>
+      <span class="problem-difficulty" id="problemDifficulty">difficulty</span>
+      <h2 class="problem-title" id="problemTitle">Loading problem...</h2>
     </div>
-    <pre class="problem-prompt" id="problemPrompt">Enter your details, then start. Submit each answer to receive the next random question. One timer runs throughout, including time between questions. When time expires, your latest saved draft is submitted automatically.</pre>
-    <p class="notice" id="sessionProgress" role="status"></p>
+    <pre class="problem-prompt" id="problemPrompt"></pre>
 
     <div class="editor">
       <div class="editor-bar">
         <span class="editor-dot" aria-hidden="true"></span><span class="editor-dot" aria-hidden="true"></span><span class="editor-dot" aria-hidden="true"></span>
         <span class="editor-filename">Main.java</span>
-        <span class="editor-hint" id="editorHint">clock starts when you start the challenge</span>
+        <span class="editor-hint" id="editorHint">clock starts on your first keystroke</span>
       </div>
       <div class="editor-host" id="editorHost"></div>
     </div>
@@ -55,7 +53,7 @@
     </div>
     <pre class="run-output" id="runOutput" hidden></pre>
 
-    <button class="cta" type="button" id="submitBtn" aria-controls="modalOverlay">Start challenge</button>
+    <button class="cta" type="button" id="submitBtn" aria-haspopup="dialog" aria-controls="modalOverlay">Submit answer</button>
 
     <div class="ticker-block" style="display: none;">
       <div class="ticker" id="ticker">--</div>
@@ -74,8 +72,11 @@
       </div>
 
       <div class="panel map-panel">
-        <div class="panel-title">Where candidates have submitted — US</div>
-        <svg id="usaMap" role="img" aria-label="Loading candidate locations" viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div class="panel-title">Where attempts are happening — live</div>
+        <svg id="usaMap" viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div class="map-legend">
+          <span class="legend-dot active"></span> developers who have attempted, all time
+        </div>
       </div>
 
     </div>
@@ -86,8 +87,8 @@
       <button class="modal-close" id="modalClose" aria-label="Close submission dialog">&times;</button>
 
       <div class="modal-body" id="modalForm">
-        <h2>Ready for your 10-minute challenge?</h2>
-        <p>Enter your details first. Your timer starts when you click Start 10-minute challenge.</p>
+        <h2>Enter your details to submit your answer</h2>
+        <p>Your details will be saved with your submission.</p>
         <div class="name-row">
           <input type="text" id="firstNameInput" placeholder="First name" aria-label="First name" maxlength="74" required>
           <input type="text" id="lastNameInput" placeholder="Last name" aria-label="Last name" maxlength="75" required>
@@ -111,7 +112,7 @@
             <div><span id="badgeTime">0:00</span><label>time taken</label></div>
           </div>
         </div>
-        <p class="pass-copy" id="completionCopy" role="status">Your answers have been saved. Thank you for taking the challenge.</p>
+        <p class="pass-copy" role="status">Your submission has been saved. Thank you for taking the challenge.</p>
         <button type="button" class="modal-submit" id="claimBtn" disabled>Get your free ticket for Code for Cash 2026 here!</button>
         <button type="button" class="modal-submit ghost" id="shareBtn">Share your badge on LinkedIn</button>
         <p class="notice" id="shareStatus" role="status"></p>
@@ -124,5 +125,5 @@
     </div>
   </div>
 
-  <footer>codereport.com · <a class="geoip-credit" href="https://db-ip.com" target="_blank" rel="noopener noreferrer">IP Geolocation by DB-IP</a></footer>
+  <footer>codereport.com</footer>
   </div>
