@@ -1,17 +1,23 @@
 # Challenge editor activity
 
-Text selection and copy, cut and paste are allowed, including OS shortcuts,
-beforeinput and the editor context menu. Clipboard activity is observed for the
-question/prompt, public test-case output and coding editor without cancelling events
-or changing clipboard contents. Drag/drop remains blocked. Personal-detail inputs,
+Native page text selection is disabled. Monaco's custom selections are collapsed to
+a single caret, including mouse drags, keyboard selection and additional cursors;
+ordinary cursor movement and typing remain available. Copy, cut, paste and drag/drop are blocked
+for the question/prompt, public test-case output and coding editor throughout the challenge page's lifetime,
+including OS shortcuts and beforeinput. The editor context menu is disabled.
+Blocked clipboard attempts are recorded without reading clipboard contents. Personal-detail inputs,
 admin screens and sign-in fields keep normal clipboard behaviour and are excluded
 from candidate activity tracking.
 
-The page says "AI use is allowed, but self-written code is worth more." This is
-display copy; grading weights have not changed. Clipboard use does not set the
+The page keeps a clipboard guard after question tracking ends, including on completion
+and reset. Copy events targeting the document are also blocked when the editor is focused
+or its contents are selected. Only an active question records activity counters.
+
+The page asks candidates to type their answers. Grading weights have not changed.
+Clipboard attempts do not set the
 `AI-used` flag: that flag requires the exact hidden marker in saved submitted code.
-Observed browser-trusted pastes/cuts explain the corresponding model changes;
-their size is recorded without flagging them solely for having few keystrokes.
+Past observed clipboard events remain supported in saved reports. Monaco paste
+callbacks are still recorded if a paste bypasses the browser event blockers.
 
 The report is sent once with `/submit`, not once per key, and stored on the saved attempt.
 It contains separate question/answer clipboard-attempt counters, keydown categories and

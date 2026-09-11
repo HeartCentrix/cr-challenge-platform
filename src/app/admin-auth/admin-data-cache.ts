@@ -76,6 +76,8 @@ export class AdminDataCache {
 export const adminDataCacheInterceptor: HttpInterceptorFn = (request, next) => {
   const root = environment.apiBaseUrl + '/admin/stats';
   if (request.method !== 'GET' || (request.url !== root && !request.url.startsWith(root + '/'))) return next(request);
+  // Detail history and grading results must refresh when revisited or retried.
+  if (/^\/candidates\/\d+\/(history|attempts\/\d+)$/.test(request.url.slice(root.length))) return next(request);
   const authorization = request.headers.get('Authorization');
   if (!authorization || authorization === 'Bearer ') return next(request);
   return inject(AdminDataCache).response(authorization + '|' + request.urlWithParams, () => next(request));

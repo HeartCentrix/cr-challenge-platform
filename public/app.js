@@ -15,6 +15,7 @@ function bootstrapChallenge(createActivity) {
   var requests = new AbortController();
   var timerId = null;
   var releaseBadge = function () {};
+  var releaseEditorSelection = function () {};
   var activity = null;
   var draftTimer = null;
   var finishSession = function () {};
@@ -250,10 +251,21 @@ function bootstrapChallenge(createActivity) {
         tabSize: 4,
         insertSpaces: true,          // never mix tabs and spaces into a submission
         renderWhitespace: 'none',
-        contextmenu: true,
+        contextmenu: false,
         dragAndDrop: false,
+        selectOnLineNumbers: false,
+        columnSelection: false,
         readOnly: true
       });
+      // Monaco draws its own selections; CSS user-select does not disable them.
+      var clearingSelection = false;
+      var selectionListener = state.editor.onDidChangeCursorSelection(function (event) {
+        if (clearingSelection || (event.selection.isEmpty() && !event.secondarySelections.length)) return;
+        clearingSelection = true;
+        try { state.editor.setPosition(event.selection.getPosition()); }
+        finally { clearingSelection = false; }
+      });
+      releaseEditorSelection = function () { selectionListener.dispose(); };
       ready();
     });
   }
@@ -568,8 +580,38 @@ function bootstrapChallenge(createActivity) {
     });
   }
 
+  // Keep clipboard restrictions after per-question activity tracking is disposed.
+  function wireClipboardGuard() {
+    ['copy', 'cut', 'paste', 'drop', 'keydown', 'beforeinput', 'contextmenu'].forEach(function (type) {
+      document.addEventListener(type, function (event) {
+        // Active questions already block and record these actions in EditorActivity.
+        if (activity && type !== 'contextmenu') return;
+        var target = event.target instanceof Element ? event.target : null;
+        if (target && target.closest('#modalOverlay')) return;
+        var host = el('editorHost');
+        var restricted = target && portal.contains(target) && target.closest('#editorHost, #problemPrompt, #problemTitle, #sampleSelect, #runOutput');
+        if (!restricted && host.contains(document.activeElement)) restricted = true;
+        var selected = document.getSelection();
+        if (!restricted && selected && !selected.isCollapsed && selected.rangeCount) {
+          var range = selected.getRangeAt(0);
+          restricted = Array.from(portal.querySelectorAll('#editorHost, #problemPrompt, #problemTitle, #sampleSelect, #runOutput'))
+            .some(function (node) { return range.intersectsNode(node); });
+        }
+        if (!restricted) return;
+        if (type === 'keydown') {
+          var key = event.key.toLowerCase();
+          if (!(((event.ctrlKey || event.metaKey) && !event.altKey && ['c', 'x', 'v'].includes(key))
+            || ((event.ctrlKey || event.shiftKey) && key === 'insert') || (event.shiftKey && key === 'delete'))) return;
+        }
+        if (type === 'beforeinput' && !/^(insertFromPaste|insertFromDrop|deleteByCut)/.test(event.inputType)) return;
+        event.preventDefault(); event.stopImmediatePropagation();
+      }, { capture: true, signal: requests.signal });
+    });
+  }
+
   // ------------------------------------------------------------------ init
   function init() {
+    wireClipboardGuard();
     el('runBtn').addEventListener('click', runSample);
     wireModal();
     loadLeaderboard();
@@ -597,6 +639,7 @@ function bootstrapChallenge(createActivity) {
     if (draftTimer !== null) clearInterval(draftTimer);
     requests.abort();
     releaseBadge();
+    releaseEditorSelection();
     if (activity) activity.dispose();
     if (state.editor) {
       var model = state.editor.getModel();

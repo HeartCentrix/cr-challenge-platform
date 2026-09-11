@@ -23,7 +23,7 @@ function setup(saved = null) {
   }
   const portal = node('challengePortal'); portal.querySelector = selector => node(selector.replace(/^#/, ''));
   const editor = { code: '', readonly: true, getValue() { return this.code; }, setValue(v) { this.code = v; },
-    updateOptions(v) { this.readonly = v.readOnly; }, getModel: () => ({ dispose() {} }), dispose() {} };
+    updateOptions(v) { this.readonly = v.readOnly; }, onDidChangeCursorSelection: () => ({ dispose() {} }), getModel: () => ({ dispose() {} }), dispose() {} };
   function question(n) { return { id: n, slug: 'q'+n, title: 'Question '+n, prompt: 'Prompt', difficulty: 5,
     starterCode: 'starter', samples: [{ stdin: '1', expectedOutput: '1' }], timeLimitSeconds: 15 }; }
   const stamp = ms => new Date(1700000000000 + ms).toISOString();
@@ -36,7 +36,7 @@ function setup(saved = null) {
     clearInterval: id => timers.delete(id), setTimeout, clearTimeout,
     require: requireMonaco, monaco: { editor: { defineTheme() {}, create: () => editor } },
     window: { addEventListener() {}, buildChallengeMap() {} },
-    document: { getElementById: () => portal, createElement: () => node('option') },
+    document: { getElementById: () => portal, createElement: () => node('option'), addEventListener() {} },
     fetch: async (url, options) => {
       const name = url.split('/').pop(); calls.push(name);
       const body = options?.body ? JSON.parse(options.body) : {};

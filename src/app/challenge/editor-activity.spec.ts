@@ -18,38 +18,38 @@ describe('Editor activity boundaries', () => {
   });
   afterEach(() => { activity.dispose(); portal.remove(); window.getSelection()?.removeAllRanges(); });
 
-  it('allows clipboard actions, keeps drop blocked, and excludes personal fields from tracking', () => {
-    expect(fire('problemPrompt', event('copy')).defaultPrevented).toBeFalse();
-    expect(fire('answer', event('paste')).defaultPrevented).toBeFalse();
-    expect(fire('answer', event('cut')).defaultPrevented).toBeFalse();
+  it('blocks clipboard actions and excludes personal fields from tracking', () => {
+    expect(fire('problemPrompt', event('copy')).defaultPrevented).toBeTrue();
+    expect(fire('answer', event('paste')).defaultPrevented).toBeTrue();
+    expect(fire('answer', event('cut')).defaultPrevented).toBeTrue();
     expect(fire('answer', event('drop')).defaultPrevented).toBeTrue();
     expect(fire('email', event('paste')).defaultPrevented).toBeFalse();
     fire('email', new KeyboardEvent('keydown', { key: 's', bubbles: true }));
     const report = activity.snapshot();
     expect(report.question.copy).toBe(1); expect(report.answer.paste).toBe(1); expect(report.answer.drop).toBe(1);
     expect(report.answer.cut).toBe(1);
-    expect(report.events.some(e => e.kind === 'copy-observed')).toBeTrue();
-    expect(report.events.some(e => e.kind === 'cut-observed')).toBeTrue();
+    expect(report.events.some(e => e.kind === 'copy-blocked')).toBeTrue();
+    expect(report.events.some(e => e.kind === 'cut-blocked')).toBeTrue();
     expect(report.keydownCount).toBe(0);
   });
 
-  it('allows Windows and Mac shortcuts and deduplicates the resulting clipboard event', () => {
+  it('blocks Windows and Mac shortcuts and deduplicates the resulting clipboard event', () => {
     const shortcut = new KeyboardEvent('keydown', { key: 'v', ctrlKey: true, bubbles: true, cancelable: true });
-    expect(fire('answer', shortcut).defaultPrevented).toBeFalse();
+    expect(fire('answer', shortcut).defaultPrevented).toBeTrue();
     fire('answer', event('paste'));
     expect(activity.snapshot().answer.paste).toBe(1);
-    expect(fire('answer', new KeyboardEvent('keydown', { key: 'c', metaKey: true, bubbles: true, cancelable: true })).defaultPrevented).toBeFalse();
+    expect(fire('answer', new KeyboardEvent('keydown', { key: 'c', metaKey: true, bubbles: true, cancelable: true })).defaultPrevented).toBeTrue();
     expect(activity.snapshot().answer.copy).toBe(1);
   });
 
-  it('allows clipboard beforeinput and selection copying with a body target', () => {
+  it('blocks clipboard beforeinput and selection copying with a body target', () => {
     const range = document.createRange(); range.selectNodeContents(portal.querySelector('#problemPrompt')!);
     window.getSelection()?.addRange(range);
-    const copy = event('copy'); document.body.dispatchEvent(copy); expect(copy.defaultPrevented).toBeFalse();
+    const copy = event('copy'); document.body.dispatchEvent(copy); expect(copy.defaultPrevented).toBeTrue();
     const paste = new InputEvent('beforeinput', { inputType: 'insertFromPaste', bubbles: true, cancelable: true });
-    expect(fire('answer', paste).defaultPrevented).toBeFalse();
+    expect(fire('answer', paste).defaultPrevented).toBeTrue();
     const cut = new InputEvent('beforeinput', { inputType: 'deleteByCut', bubbles: true, cancelable: true });
-    expect(fire('answer', cut).defaultPrevented).toBeFalse();
+    expect(fire('answer', cut).defaultPrevented).toBeTrue();
   });
 
   it('records categories and untrusted events without literal keys or code content', () => {
@@ -59,6 +59,14 @@ describe('Editor activity boundaries', () => {
     expect(report.syntheticEvents).toBe(14);
     expect(JSON.stringify(report)).not.toContain('sensitive-text');
     expect(report.events.every(e => e.kind === 'key-character')).toBeTrue();
+  });
+
+  it('blocks document-targeted copy while the code editor has focus', () => {
+    (portal.querySelector('#answer') as HTMLTextAreaElement).focus();
+    const copy = event('copy');
+    document.body.dispatchEvent(copy);
+    expect(copy.defaultPrevented).toBeTrue();
+    expect(activity.snapshot().answer.copy).toBe(1);
   });
 
   it('tracks model replacement and observed Monaco paste even without DOM clipboard events', () => {

@@ -1,7 +1,14 @@
 <app-admin-nav />
 <main>
   <a routerLink="/stats-admin">← Back to candidate statistics</a>
-  <div class="detail-date-filter"><span>Report day</span><app-date-range [singleDay]="true" [value]="range()" (changed)="setDay($event)" /><span class="muted">Time zone: {{ time.zone }}</span></div>
+  <nav class="detail-date-filter" aria-label="Attempt day navigation">
+    <button type="button" (click)="refresh()" [disabled]="candidate.isLoading()">Refresh latest attempts</button>
+    @if (candidate.hasValue()) {
+      <button type="button" (click)="setDay(candidate.value().history?.previousDay)" [disabled]="candidate.isLoading() || !candidate.value().history?.previousDay">Previous attempt day</button>
+      <span aria-live="polite">{{ day() || 'No attempts yet' }}</span>
+      <button type="button" (click)="setDay(candidate.value().history?.nextDay)" [disabled]="candidate.isLoading() || !candidate.value().history?.nextDay">Next attempt day</button>
+    }
+  </nav>
   @if (!validId()) { <p class="error" role="alert">Invalid candidate ID.</p> }
   @if (candidate.isLoading()) { <p role="status">Loading candidate details...</p> }
   @if (candidate.error(); as error) { <p class="error" role="alert">{{ api.message(error) }} <button type="button" (click)="candidate.reload()">Retry</button></p> }
@@ -18,7 +25,7 @@
         <div><dt>Acquisition campaign</dt><dd>{{ candidate.value().sourceCampaign || 'Not recorded' }} @if (candidate.value().sourceCampaign === 'direct') { <small class="muted">(no campaign tag)</small> }</dd></div>
         <div><dt>Marketing consent</dt><dd>{{ candidate.value().consented ? 'Yes' : 'No' }}</dd></div>
       </dl>
-      <h2 class="section-label">Performance for {{ day() }}</h2><dl class="info performance-info">
+      <h2 class="section-label">{{ day() ? 'Performance for ' + day() : 'Performance' }}</h2><dl class="info performance-info">
         <div><dt>Total submissions</dt><dd>{{ candidate.value().attempts.total }}</dd></div>
         <div><dt>Day score</dt><dd>{{ candidate.value().performance.totalScore | number:'1.0-2' }}</dd></div>
         <div><dt>Average submission score</dt><dd>{{ candidate.value().performance.averageScore | number:'1.0-2' }}</dd></div>
@@ -26,12 +33,12 @@
         <div><dt>Day pass rate</dt><dd>{{ candidate.value().performance.passPercentage === null ? 'N/A' : (candidate.value().performance.passPercentage | number:'1.0-2') + '%' }}</dd></div>
       </dl>
     </section>
-    <section aria-labelledby="historyTitle"><h2 id="historyTitle">Challenge history · {{ day() }}</h2><p>Only submissions on the selected local day. Newest first. Select an attempt to see its full details.</p>
+    <section aria-labelledby="historyTitle"><h2 id="historyTitle">Challenge history{{ day() ? ' · ' + day() : '' }}</h2><p>All attempt days are available using the navigation above. Submissions are shown one day at a time, newest first. Select an attempt to see its full details.</p>
       <div class="attempts">@for (item of candidate.value().attempts.items; track item.id) {
         <button type="button" [class.selected]="selectedAttempt() === item.id" [attr.aria-pressed]="selectedAttempt() === item.id" (click)="selectedAttempt.set(item.id)">
           #{{ item.id }} · {{ item.title }} · {{ item.testcasesPassed }}/{{ item.testcasesTotal }} · {{ time.format(item.submittedAt) }}</button>
-      } @empty { <p>No submissions on {{ day() }}. Choose another day to view or export results.</p> }</div>
-      <div class="pagination"><span>Page {{ page() + 1 }}</span><button type="button" [disabled]="page() === 0 || candidate.isLoading()" (click)="page.set(page() - 1)">Previous attempts</button>
+      } @empty { <p>No submissions recorded for this candidate.</p> }</div>
+      <div class="pagination"><span>Page {{ page() + 1 }}</span><button type="button" [disabled]="page() === 0 || candidate.isLoading() || !!candidate.error()" (click)="page.set(page() - 1)">Previous attempts</button>
         <button type="button" [disabled]="(page() + 1) * 10 >= candidate.value().attempts.total || candidate.isLoading()" (click)="page.set(page() + 1)">Next attempts</button></div>
     </section>
     @if (attempt.isLoading()) { <p role="status">Loading full challenge details...</p> }
