@@ -15,8 +15,10 @@ export interface AttemptSummary {
   durationMs: number | null; testcasesPassed: number; testcasesTotal: number; passPercentage: number | null;
   score: number; speedBonus: number; judgeStatus: string | null;
 }
-export interface CandidateRow { id: number; fullName: string; email: string; phone: string; sourceCampaign: string | null; performance: Performance; regionCode?: string; region?: string; aiMarkerDetected?: boolean; }
+export interface CrnMatch { status: 'NOT_CHECKED' | 'PENDING' | 'CHECKED' | 'ERROR'; emailMatch: boolean | null; phoneMatch: boolean | null; checkedAt: string | null; }
+export interface CandidateRow { id: number; fullName: string; email: string; phone: string; sourceCampaign: string | null; performance: Performance; regionCode?: string; region?: string; aiMarkerDetected?: boolean; crn?: CrnMatch; }
 export interface CandidateDetail {
+  crn?: CrnMatch;
   id: number; fullName: string; email: string; phone: string; consented: boolean; sourceCampaign: string;
   firstSeenAt: string; lastSeenAt: string; performance: Performance; attempts: Page<AttemptSummary>;
   history?: { day: string | null; previousDay: string | null; nextDay: string | null; asOf: string };
