@@ -1,5 +1,6 @@
 import { AfterViewInit, ChangeDetectionStrategy, Component, NgZone, OnDestroy, inject } from '@angular/core';
 import { ActivityEditor, EditorActivity } from './editor-activity';
+import { ChallengeDevtoolsGuard } from './challenge-devtools-guard';
 import { environment } from '../../environments/environment';
 
 declare global {
@@ -39,9 +40,11 @@ export class Challenge implements AfterViewInit, OnDestroy {
   private readonly zone = inject(NgZone);
   private destroyed = false;
   private cleanup?: () => void;
+  private devtoolsGuard?: ChallengeDevtoolsGuard;
 
   ngAfterViewInit() {
     this.zone.runOutsideAngular(async () => {
+      this.devtoolsGuard = new ChallengeDevtoolsGuard(document);
       try {
         await Promise.all([
           loadScript('/map.js'),
@@ -61,6 +64,7 @@ export class Challenge implements AfterViewInit, OnDestroy {
 
   ngOnDestroy() {
     this.destroyed = true;
+    this.devtoolsGuard?.dispose();
     this.cleanup?.();
   }
 }

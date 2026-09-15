@@ -19,7 +19,7 @@
       @if (exporter.error()) { <p class="error" role="alert">{{ exporter.error() }}</p> }
       <p class="time-zone">Time zone: {{ time.zone }} · 24-hour clock · elapsed durations are unchanged</p>
       <h2>Contact &amp; acquisition</h2>
-      <p><strong>CRN</strong> <app-crn-indicator [value]="candidate.value().crn" [details]="true" /></p>
+      <p class="crn-summary"><strong>CRN</strong><app-crn-indicator [value]="candidate.value().crn" [details]="true" /></p>
       @if (candidate.value().crn?.checkedAt; as checkedAt) { <p class="time-zone">CRN checked: {{ time.format(checkedAt) }}</p> }
       <dl class="info">
         <div><dt>Email</dt><dd>{{ candidate.value().email }}</dd></div><div><dt>Phone</dt><dd>{{ candidate.value().phone }}</dd></div>

@@ -30,6 +30,23 @@ describe('AdminCandidate history', () => {
   });
   afterEach(() => TestBed.inject(HttpTestingController).verify());
 
+  it('aligns the CRN label, status dot and text with consistent spacing', async () => {
+    const fixture = TestBed.createComponent(AdminCandidate); fixture.detectChanges();
+    TestBed.inject(HttpTestingController).expectOne(r => r.url.endsWith('/history')).flush({
+      ...detail(null, null, null, []),
+      crn: { status: 'CHECKED', emailMatch: true, phoneMatch: false, checkedAt: null },
+    });
+    await fixture.whenStable(); fixture.detectChanges();
+    const row: HTMLElement = fixture.nativeElement.querySelector('.crn-summary');
+    const indicator = row.querySelector('app-crn-indicator')!;
+    expect(getComputedStyle(row).display).toBe('flex');
+    expect(getComputedStyle(row).alignItems).toBe('center');
+    expect(getComputedStyle(row).gap).toBe('8px');
+    expect(getComputedStyle(indicator).gap).toBe('8px');
+    expect(row.textContent).toContain('Email matched');
+    fixture.destroy();
+  });
+
   async function flushAttempt(fixture: ComponentFixture<AdminCandidate>, id: number) {
     await new Promise<void>(resolve => setTimeout(resolve, 0));
     fixture.detectChanges();
