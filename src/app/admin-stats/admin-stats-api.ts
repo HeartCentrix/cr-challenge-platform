@@ -26,6 +26,11 @@ export interface CaseResult {
   passed: boolean | null; judgeStatus: string | null; execTimeMs: number | null; memoryKb: number | null; stdout: string | null;
 }
 export interface AttemptDetail {
+  followups?: { ordinal: number; kind: string; prompt: string; options: {id: string; text: string}[];
+    answer: string[]; expectedAnswer: string[]; rubric: string; reviewStatus: string; submittedAt: string | null;
+    debug?: {starterCode: string; prefix: string; suffix: string; languageId: number} | null;
+    debugSource?: string | null;
+    debugResult?: {passed: number; total: number; cases: {ordinal: number; status: string; passed: boolean; stdout: string | null; stderr: string | null; execTimeMs: number | null}[]} | null }[];
   aiMarkerDetected?: boolean;
   sessionTiming?: { sessionId: number; questionNumber: number; startedAt: string; expiresAt: string; finishedAt: string | null; elapsedMs: number | null } | null;
   checkpointHistory?: { status: string; finalCodeMatches: boolean | null; reportingGaps: boolean;

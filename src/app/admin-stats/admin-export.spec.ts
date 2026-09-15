@@ -23,6 +23,21 @@ const candidate: CandidateDetail = { ...row, sourceCampaign: 'linkedin', consent
   attempts: { items: [attempt.summary], total: 2, page: 0, size: 1 } };
 
 describe('Admin exports', () => {
+  it('exports DEBUG snippets, private grading counts and wrapped source', () => {
+    const report = candidateWorkbook(candidate, [{...attempt,followups:[{
+      ordinal:4,kind:'DEBUG',prompt:'Legacy prompt',options:[],answer:['return 1;'],expectedAnswer:['return 1;'],
+      rubric:'Pass the tests',reviewStatus:'CORRECT',submittedAt:'2026-09-01T12:00:00Z',
+      debug:{starterCode:'return 0;',prefix:'prefix',suffix:'suffix',languageId:62},debugSource:'prefixreturn 1;suffix',
+      debugResult:{passed:1,total:1,cases:[{ordinal:1,status:'Accepted',passed:true,stdout:'1',stderr:null,execTimeMs:2}]}
+    }]}]);
+    const sheet = report.getWorksheet('Follow-up Answers')!;
+    expect(sheet.getCell(5,4).text).toBe('return 0;');
+    expect(sheet.getCell(5,6).text).toBe('return 1;');
+    expect(sheet.getCell(5,11).value).toBe(1);
+    expect(sheet.getCell(5,12).value).toBe(1);
+    expect(sheet.getCell(5,13).text).toContain('Accepted');
+    expect(report.getWorksheet('Code and Questions')!.getColumn(4).values).toContain('prefixreturn 1;suffix');
+  });
   it('exports AI-used flags separately from absent markers and unavailable checks', () => {
     const statuses = [true, false, undefined];
     const expected = ['AI-used', 'Marker not found', 'Not checked'];
@@ -103,7 +118,7 @@ describe('Admin exports', () => {
     const noCases = { ...attempt, summary: { ...attempt.summary, id: 9 }, testcases: [] };
     const book = candidateWorkbook(candidate, [detailed, noCases], new AdminTime('Asia/Kolkata'), new Date('2026-09-01T12:00:00Z'));
     const restored = new Workbook(); await restored.xlsx.load(await book.xlsx.writeBuffer());
-    expect(restored.worksheets.map(s => s.name)).toEqual(['Candidate Overview', 'Submissions', 'Code and Questions', 'Test Results', 'Test Case Content', 'Editor Activity', 'Activity Timeline', 'Editor Checkpoints']);
+    expect(restored.worksheets.map(s => s.name)).toEqual(['Candidate Overview', 'Submissions', 'Code and Questions', 'Test Results', 'Test Case Content', 'Editor Activity', 'Activity Timeline', 'Editor Checkpoints', 'Follow-up Answers']);
     expect(restored.getWorksheet('Editor Activity')!.getCell('G5').value).toBe('Not recorded');
     const history = restored.getWorksheet('Submissions')!;
     expect(history.rowCount).toBe(6);

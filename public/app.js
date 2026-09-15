@@ -4,7 +4,7 @@
  * countdown, running against samples, scoring, the leaderboard and the ticker.
  * The visual language is untouched; only the wiring is new.
  */
-function bootstrapChallenge(createActivity) {
+function bootstrapChallenge(createActivity, showFollowup, submitFollowup) {
   'use strict';
 
   var API = window.__CHALLENGE_API_BASE__ || '/api/v1';
@@ -55,7 +55,7 @@ function bootstrapChallenge(createActivity) {
     var abort = function () { controller.abort(); };
     requests.signal.addEventListener('abort', abort, { once: true });
     if (requests.signal.aborted) controller.abort();
-    var timeout = path.indexOf('/challenge-sessions/') === 0 ? setTimeout(abort, 15000) : null;
+    var timeout = path.indexOf('/challenge-sessions/') === 0 ? setTimeout(abort, 15000) : path === '/run' ? setTimeout(abort, 125000) : null;
     return fetch(API + path, Object.assign({}, options, { signal: controller.signal })).then(function (res) {
       return res.json().catch(function () { return {}; }).then(function (body) {
         return { status: res.status, ok: res.ok, body: body };
@@ -79,8 +79,9 @@ function bootstrapChallenge(createActivity) {
     return state.remainingAtSync - Math.max(performance.now() - state.clockAnchor, Date.now() - state.wallAnchor);
   }
   function active() { return state.session && state.session.status === 'ACTIVE' && !state.timeUp; }
+  function coding() { return active() && state.session.phase !== 'FOLLOW_UP'; }
   function saveDraft() {
-    if (!active() || state.submitting || !state.editor) return Promise.resolve();
+    if (!coding() || state.submitting || !state.editor) return Promise.resolve();
     if (state.draftPending) return state.draftPending;
     var code = sourceCode(), ordinal = state.session.ordinal;
     if (code === state.savedCode || code.length > 100000) return Promise.resolve();
@@ -110,6 +111,33 @@ function bootstrapChallenge(createActivity) {
     state.remainingAtSync = sameClock ? Math.min(remaining, Math.max(0, remainingMs())) : remaining;
     state.clockAnchor = performance.now(); state.wallAnchor = Date.now();
     state.timeUp = session.status !== 'ACTIVE' || state.remainingAtSync <= 0;
+    var isFollowup = session.status === 'ACTIVE' && session.phase === 'FOLLOW_UP';
+    el('submitBtn').hidden = false;
+    portal.querySelector('.editor').hidden = isFollowup;
+    portal.querySelector('.run-bar').hidden = isFollowup;
+    if (showFollowup) showFollowup(isFollowup ? { round: session.ordinal, question: session.followup, submit: function (answers, sourceCode) {
+      if (!active() || remainingMs() <= 0) { timeUp(); return Promise.reject(new Error('Time expired')); }
+      state.submitting = true;
+      el('submitBtn').disabled = true; el('submitBtn').textContent = 'Saving answer…';
+      return postSession('followup-answer', { ordinal: session.ordinal, followupOrdinal: session.followup.ordinal, answers: answers, sourceCode: sourceCode })
+        .then(function (r) { if (!r.ok) throw new Error('Follow-up not saved'); applySession(r.body); })
+        .finally(function () {
+          state.submitting = false;
+          if (!disposed && active()) {
+            el('submitBtn').disabled = false;
+            el('submitBtn').textContent = 'Submit answer';
+          }
+          if (state.timeUp && !state.submitted) finishSession();
+        });
+    }, samples: session.question.samples || [], run: function (sourceCode, stdin) {
+      if (disposed || !active() || state.session !== session || remainingMs() <= 0) return Promise.reject(new Error('Question no longer active'));
+      return api('/run', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: session.question.slug, sourceCode: sourceCode, stdin: stdin }) })
+        .then(function (r) {
+          if (!r.ok || !r.body.status || /^judge /i.test(r.body.status)) throw new Error('Run unavailable');
+          return r.body;
+        });
+    } } : null);
     el('sessionProgress').textContent = 'Question ' + session.ordinal + ' · ' + session.submittedAnswers + ' answers submitted';
     if (session.status !== 'ACTIVE') {
       stopClock(); state.submitted = true;
@@ -122,6 +150,16 @@ function bootstrapChallenge(createActivity) {
       showCompletion(session); loadLeaderboard(); loadStats(); return;
     }
     state.submitted = false;
+    if (isFollowup) {
+      if (activity) activity.dispose(); activity = null;
+      state.question = session.question; renderQuestion();
+      state.editor.updateOptions({ readOnly: true });
+      el('runBtn').disabled = true; el('runOutput').hidden = true;
+      el('submitBtn').disabled = state.timeUp; el('submitBtn').textContent = 'Submit answer';
+      el('sessionProgress').textContent = 'Question ' + session.ordinal + ' · Follow-up ' + session.followup.ordinal + ' of 5';
+      if (state.timeUp) timeUp(); else startClock();
+      return;
+    }
     el('editorHost').classList.remove('locked');
     if (changed) {
       if (activity) activity.dispose();
@@ -132,7 +170,7 @@ function bootstrapChallenge(createActivity) {
       el('runOutput').hidden = true; el('runStatus').textContent = '';
     }
     state.editor.updateOptions({ readOnly: state.timeUp });
-    el('submitBtn').disabled = state.timeUp; el('submitBtn').textContent = 'Submit & next question';
+    el('submitBtn').disabled = state.timeUp; el('submitBtn').textContent = 'Submit answer';
     el('runBtn').disabled = state.timeUp || !state.question.samples.length;
     if (state.timeUp) timeUp(); else startClock();
   }
@@ -166,6 +204,8 @@ function bootstrapChallenge(createActivity) {
   function timeUp() {
     stopClock();
     state.timeUp = true;
+    if (showFollowup) showFollowup(null);
+    el('submitBtn').hidden = false;
     var host = el('editorHost');
     if (host) host.classList.add('locked');
     if (state.editor) state.editor.updateOptions({ readOnly: true });
@@ -352,7 +392,11 @@ function bootstrapChallenge(createActivity) {
       e.preventDefault();
       if (state.submitting) return;
       if (state.timeUp && !state.submitted) { finishSession(); return; }
-      if (active()) { submitAnswer(); return; }
+      if (active()) {
+        if (state.session.phase === 'FOLLOW_UP') { submitFollowup(); }
+        else { submitAnswer(); }
+        return;
+      }
       if (state.submitted && token) {
         // An admin may have reset the daily limit since this summary was shown.
         state.submitting = true; el('submitBtn').disabled = true;
@@ -409,6 +453,8 @@ function bootstrapChallenge(createActivity) {
       if (activity) activity.dispose(); activity = null;
       rememberToken(null);
       state.session = null; state.question = null; state.startedAt = null;
+      if (showFollowup) showFollowup(null);
+      el('submitBtn').hidden = false; portal.querySelector('.editor').hidden = false; portal.querySelector('.run-bar').hidden = false;
       state.timeUp = false; state.submitted = false; state.secondsLeft = 600;
       state.remainingAtSync = 600000; state.revision = 0; state.savedCode = '';
       state.editor.setValue(''); state.editor.updateOptions({ readOnly: true });
@@ -493,9 +539,8 @@ function bootstrapChallenge(createActivity) {
     };
 
     function submitAnswer() {
-      if (!active() || state.submitting) return;
+      if (!coding() || state.submitting) return;
       if (remainingMs() <= 0) { timeUp(); return; }
-      if (!sourceCode().trim()) { el('editorHint').textContent = 'Enter your answer before submitting.'; return; }
       state.submitting = true; state.editor.updateOptions({ readOnly: true });
       el('submitBtn').disabled = true; el('submitBtn').textContent = 'Saving answer…';
       var answer = { ordinal: state.session.ordinal, sourceCode: sourceCode(),
@@ -507,9 +552,9 @@ function bootstrapChallenge(createActivity) {
         el('editorHint').textContent = 'Could not confirm your answer. Retry; it will not be counted twice.';
       }).finally(function () {
         state.submitting = false;
-        if (active()) {
+        if (coding()) {
           state.editor.updateOptions({ readOnly: false });
-          el('submitBtn').disabled = false; el('submitBtn').textContent = 'Submit & next question';
+          el('submitBtn').disabled = false; el('submitBtn').textContent = 'Submit answer';
         } else if (state.timeUp && !state.submitted) finishSession();
       });
     }

@@ -66,6 +66,29 @@
           </dl>
         }
         <h3>Submitted code</h3><pre id="submittedCode">{{ attempt.value().sourceCode }}</pre>
+        @if (attempt.value().followups?.length) {
+          <h3>Follow-up answers</h3>
+          <p class="muted">Saved against this coding round. Follow-up checks are separate from the coding score. Executable DEBUG snippets are Judge-graded; essays and older text-only debugging answers need staff review.</p>
+          @for (f of attempt.value().followups; track f.ordinal) {
+            <details>
+              <summary>{{ f.ordinal }}. {{ f.kind === 'SHORT_ANSWER' ? 'ESSAY' : f.kind }} · {{ f.reviewStatus }}</summary>
+              <pre>{{ f.debug ? f.debug.starterCode : f.prompt }}</pre>
+              @for (o of f.options; track o.id) { <p>{{ o.id }}: {{ o.text }}</p> }
+              <h4>Candidate answer</h4><pre>{{ f.answer.length ? f.answer.join('\n') : f.reviewStatus === 'SKIPPED' ? 'Skipped' : 'Not answered' }}</pre>
+              <p>Submitted: {{ f.submittedAt ? time.format(f.submittedAt) : 'Not submitted' }}</p>
+              <h4>Staff answer / review guide</h4><pre>{{ f.expectedAnswer.join('\n') }}</pre><p>{{ f.rubric }}</p>
+              @if (f.debugSource) { <h4>Wrapped code sent to Judge</h4><pre>{{ f.debugSource }}</pre> }
+              @if (f.debugResult; as grading) {
+                <h4>DEBUG test results: {{ grading.passed }} / {{ grading.total }} passed</h4>
+                @for (test of grading.cases; track test.ordinal) {
+                  <p>Test {{ test.ordinal }}: {{ test.status }} · {{ test.execTimeMs ?? '—' }} ms</p>
+                  @if (test.stdout) { <pre>{{ test.stdout }}</pre> }
+                  @if (test.stderr) { <pre>{{ test.stderr }}</pre> }
+                }
+              }
+            </details>
+          }
+        }
         <h3>AI marker check</h3>
         @if (attempt.value().aiMarkerDetected === true) {
           <p class="fail" role="status"><strong>AI-used</strong> — Hidden marker found in the submitted code.</p>

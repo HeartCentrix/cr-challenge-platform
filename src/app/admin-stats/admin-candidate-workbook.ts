@@ -35,6 +35,9 @@ export function candidateWorkbook(candidate: CandidateDetail, attempts: AttemptD
   const checkpoints = reportSheet(book, stamp, 'Editor Checkpoints', ['Attempt ID', 'Sequence', 'Received (local)', 'UTC offset', 'Elapsed (ms)', 'Key events', 'Mass inputs', 'Flagged mass inputs', 'Code part', 'Code'],
     [14, 14, 26, 15, 18, 16, 16, 20, 12, 110], 'Server receipt times; client-reported code/activity. Changed states only, not proof of cheating. Code split into numbered parts.');
   const p = candidate.performance;
+  const followups = reportSheet(book, stamp, 'Follow-up Answers',
+    ['Attempt ID', 'Ordinal', 'Style', 'Prompt / original snippet', 'Options', 'Candidate answer', 'Staff answer', 'Review guide', 'Status', 'Submitted (local / offset)', 'DEBUG tests passed', 'DEBUG tests total', 'DEBUG test results'],
+    [14, 12, 20, 70, 55, 60, 60, 70, 24, 35, 20, 20, 65], 'Issued follow-up snapshots. Separate from coding scores. Executable DEBUG is Judge-graded; essays and older text-only DEBUG need staff review.');
   const profile: CellValue[][] = [
     ['Candidate', candidate.fullName || 'Unnamed candidate'], ['Candidate ID', candidate.id], ['Email', candidate.email],
     ['Phone', candidate.phone], ['Campaign', candidate.sourceCampaign || 'Not recorded'], ['Marketing consent', candidate.consented ? 'Yes' : 'No'],
@@ -106,6 +109,14 @@ export function candidateWorkbook(candidate: CandidateDetail, attempts: AttemptD
     r.getCell(6).numFmt = dateFormat; r.getCell(8).numFmt = '[h]:mm:ss'; r.getCell(11).numFmt = '0.00%';
     r.getCell(12).numFmt = r.getCell(13).numFmt = '0.00';
     textRows(code, [s.id], 'Submitted code', a.sourceCode);
+    for (const f of a.followups ?? []) {
+      followups.addRow([s.id, f.ordinal, f.kind === 'SHORT_ANSWER' ? 'ESSAY' : f.kind, f.debug?.starterCode ?? f.prompt,
+      f.options.map(o => o.id + ': ' + o.text).join('\n'), f.answer.join('\n'), f.expectedAnswer.join('\n'),
+      f.rubric, f.reviewStatus, f.submittedAt ? time.format(f.submittedAt) : 'Not submitted',
+      f.debugResult?.passed ?? null, f.debugResult?.total ?? null,
+      f.debugResult?.cases.map(c => `Test ${c.ordinal}: ${c.status} (${c.execTimeMs ?? '—'} ms)`).join('\n') ?? '']);
+      if (f.debugSource) textRows(code, [s.id], `DEBUG follow-up ${f.ordinal}: wrapped code`, f.debugSource);
+    }
     textRows(code, [s.id], 'Problem statement', a.prompt);
     textRows(code, [s.id], 'Starter code', a.starterCode);
     textRows(code, [s.id], 'Reference solution', a.referenceSolution);

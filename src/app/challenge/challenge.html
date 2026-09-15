@@ -31,14 +31,14 @@
 
     <button class="cta" type="button" id="submitBtn" aria-controls="modalOverlay">Start challenge</button>
 
-    <div class="challenge-workspace">
-    <div class="problem-head">
+    <div class="challenge-workspace" [class.followup-mode]="!!followup()">
+    <div class="problem-head" [hidden]="!!followup()">
       <span class="problem-difficulty" id="problemDifficulty">10-minute challenge</span>
       <h2 class="problem-title" id="problemTitle">Ready to take the challenge?</h2>
     </div>
-    <pre class="problem-prompt" id="problemPrompt">Enter your details, then start. Submit each answer to receive the next random question. One timer runs throughout, including time between questions. When time expires, your latest saved draft is submitted automatically.</pre>
+    <pre class="problem-prompt" id="problemPrompt" [hidden]="!!followup()">Enter your details, then start. Answer a coding question, complete its five follow-ups, then move to the next coding question. The same 10-minute timer runs throughout. When time expires, your latest saved coding draft is submitted automatically.</pre>
 
-    <div class="editor">
+    <div class="editor" [hidden]="!!followup()">
       <div class="editor-bar">
         <span class="editor-dot" aria-hidden="true"></span><span class="editor-dot" aria-hidden="true"></span><span class="editor-dot" aria-hidden="true"></span>
         <span class="editor-filename">Main.java</span>
@@ -46,6 +46,7 @@
       </div>
       <div class="editor-host" id="editorHost"></div>
     </div>
+    <app-followup [view]="followup()" />
     </div>
     <p class="notice" id="sessionProgress" role="status"></p>
 
