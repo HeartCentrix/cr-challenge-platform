@@ -23,6 +23,14 @@ const candidate: CandidateDetail = { ...row, sourceCampaign: 'linkedin', consent
   attempts: { items: [attempt.summary], total: 2, page: 0, size: 1 } };
 
 describe('Admin exports', () => {
+  it('exports the CRN match explanation in both workbooks', () => {
+    const crn = {status:'CHECKED' as const,emailMatch:true,phoneMatch:false,checkedAt:'2026-09-16T00:00:00Z'};
+    expect(tableWorkbook([{...row,crn}],{}).getWorksheet('Candidates')!.getCell(5,18).text).toBe('Email matched');
+    const book=candidateWorkbook({...candidate,crn},[attempt]);
+    const cells: string[]=[];
+    book.worksheets[0].eachRow(r=>r.eachCell(c=>cells.push(c.text)));
+    expect(cells).toContain('Email matched');
+  });
   it('exports AI-used flags separately from absent markers and unavailable checks', () => {
     const statuses = [true, false, undefined];
     const expected = ['AI-used', 'Marker not found', 'Not checked'];

@@ -5,6 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Subscription } from 'rxjs';
 import { AdminNav } from './admin-nav';
+import { CrnIndicator } from './crn-indicator';
 import { AdminTheme } from './admin-theme';
 import { AdminTime } from './admin-time';
 import { AdminExport } from './admin-export';
@@ -17,7 +18,7 @@ import { AdminStatsApi, CandidateRow, CandidatePage, Overview, duration } from '
 @Component({
   selector: 'app-admin-stats',
   providers: [AdminExport],
-  imports: [AdminNav, RouterLink, DecimalPipe, DateRangePicker, StatsChart],
+  imports: [AdminNav, CrnIndicator, RouterLink, DecimalPipe, DateRangePicker, StatsChart],
   templateUrl: './admin-stats.html', styleUrl: './admin-stats.css',
   host: { '[attr.data-theme]': 'theme.mode()', 'class': 'dashboard' },
   changeDetection: ChangeDetectionStrategy.OnPush,

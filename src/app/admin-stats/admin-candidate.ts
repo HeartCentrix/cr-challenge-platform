@@ -4,6 +4,7 @@ import { httpResource } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { AdminNav } from './admin-nav';
+import { CrnIndicator } from './crn-indicator';
 import { AdminTheme } from './admin-theme';
 import { AdminTime } from './admin-time';
 import { AdminExport } from './admin-export';
@@ -12,7 +13,7 @@ import { AdminStatsApi, AttemptDetail, CandidateDetail, duration } from './admin
 @Component({
   selector: 'app-admin-candidate',
   providers: [AdminExport],
-  imports: [AdminNav, RouterLink, DecimalPipe],
+  imports: [AdminNav, CrnIndicator, RouterLink, DecimalPipe],
   templateUrl: './admin-candidate.html',
   styleUrl: './admin-stats.css',
   host: { '[attr.data-theme]': 'theme.mode()' },
