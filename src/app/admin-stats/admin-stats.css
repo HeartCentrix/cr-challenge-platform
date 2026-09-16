@@ -23,3 +23,4 @@ section{background:var(--surface);border:1px solid var(--border);border-radius:8
 .section-label{margin-top:26px;padding-top:20px;border-top:1px solid var(--border)}
 .performance-info dd{font-weight:700;font-size:19px;font-variant-numeric:tabular-nums}
 .detail-date-filter{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:18px 0;font-weight:600}
+.crn-summary{display:flex;align-items:center;gap:8px}.crn-summary>strong{flex-shrink:0}

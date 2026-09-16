@@ -2,6 +2,7 @@ import { Workbook, Worksheet, CellValue } from 'exceljs';
 import { AttemptDetail, CandidateDetail } from './admin-stats-api';
 import { reportSheet, styleWorkbook } from './admin-excel-style';
 import { AdminTime } from './admin-time';
+import { crnLabel } from './crn-indicator';
 
 const dateFormat = 'yyyy-mm-dd hh:mm:ss';
 const elapsed = (ms: number | null) => ms === null ? null : ms / 86400000;
@@ -38,6 +39,8 @@ export function candidateWorkbook(candidate: CandidateDetail, attempts: AttemptD
   const profile: CellValue[][] = [
     ['Candidate', candidate.fullName || 'Unnamed candidate'], ['Candidate ID', candidate.id], ['Email', candidate.email],
     ['Phone', candidate.phone], ['Campaign', candidate.sourceCampaign || 'Not recorded'], ['Marketing consent', candidate.consented ? 'Yes' : 'No'],
+    ['CRN', crnLabel(candidate.crn)],
+    ['CRN checked', candidate.crn?.checkedAt ? time.format(candidate.crn.checkedAt) : 'Not checked'],
     ['Time zone', time.zone, 'All workbook timestamps use this local time zone. UTC offsets are recorded per timestamp.'],
     ['Exported', time.excelDate(exportedAt), time.parts(exportedAt)?.offset],
     ['First seen', time.excelDate(candidate.firstSeenAt), time.parts(candidate.firstSeenAt)?.offset],

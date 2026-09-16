@@ -1,6 +1,7 @@
 import { Workbook } from 'exceljs';
 import { CandidateRow } from './admin-stats-api';
 import { AdminTime } from './admin-time';
+import { crnLabel } from './crn-indicator';
 import { reportSheet, styleWorkbook } from './admin-excel-style';
 
 /** A genuine spreadsheet: sortable dates, numeric scores/percentages, and literal user text. */
@@ -8,8 +9,8 @@ export function tableWorkbook(rows: CandidateRow[], filters: Record<string, stri
   const book = new Workbook(); book.creator = 'CodeReport'; book.created = exportedAt;
   const stamp = `Time zone: ${time.zone} | Exported: ${time.format(exportedAt)} | Confidential admin data`;
   const sheet = reportSheet(book, stamp, 'Candidates', ['Candidate', 'Candidate ID', 'Email', 'Phone', 'Campaign', 'Challenges',
-    'Submissions', 'Test cases passed', 'Test cases total', 'Pass rate', 'Total score', 'Average score', 'Total time', 'Last submission (local)', 'UTC offset', 'Region (IP-derived)', 'AI-used'],
-    [30, 16, 36, 22, 26, 16, 16, 18, 18, 16, 16, 18, 18, 25, 18, 26, 30],
+    'Submissions', 'Test cases passed', 'Test cases total', 'Pass rate', 'Total score', 'Average score', 'Total time', 'Last submission (local)', 'UTC offset', 'Region (IP-derived)', 'AI-used', 'CRN'],
+    [30, 16, 36, 22, 26, 16, 16, 18, 18, 16, 16, 18, 18, 25, 18, 26, 30, 32],
     `${rows.length} candidates matching the applied filters. See Export Details for the exact filters. Elapsed time: hours:minutes:seconds.`);
   for (const item of rows) {
     const p = item.performance;
@@ -17,7 +18,7 @@ export function tableWorkbook(rows: CandidateRow[], filters: Record<string, stri
       p.questionsAttempted, p.attemptCount, p.testcasesPassed, p.testcasesTotal, p.passPercentage === null ? null : p.passPercentage / 100,
       p.totalScore, p.averageScore, p.durationMs === null ? null : p.durationMs / 86400000,
       time.excelDate(p.lastSubmittedAt), time.parts(p.lastSubmittedAt)?.offset, item.region || 'Unknown',
-      item.aiMarkerDetected === true ? 'Yes' : item.aiMarkerDetected === false ? 'No' : 'Not checked']);
+      item.aiMarkerDetected === true ? 'Yes' : item.aiMarkerDetected === false ? 'No' : 'Not checked', crnLabel(item.crn)]);
     r.getCell(10).numFmt = '0.00%'; r.getCell(11).numFmt = r.getCell(12).numFmt = '0.00';
     r.getCell(13).numFmt = '[h]:mm:ss'; r.getCell(14).numFmt = 'yyyy-mm-dd hh:mm:ss';
   }
