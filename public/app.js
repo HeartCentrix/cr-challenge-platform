@@ -427,7 +427,7 @@ function bootstrapChallenge(createActivity) {
 
     el('badgeLogo').src = portal.querySelector('.logo-img').src;
     // Share only the public challenge URL, never candidate details or local API URLs.
-    var shareUrl = new URL('https://challenge.dev.codereport.com/');
+    var shareUrl = new URL('https://challenge.codereport.com/');
     var badgeUrl;
     releaseBadge = function () {
       if (badgeUrl) URL.revokeObjectURL(badgeUrl);

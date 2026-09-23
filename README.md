@@ -33,7 +33,7 @@ Then open <http://localhost:4200/>. The default `local-dev` Angular environment 
 
 ```bash
 npm run build:local-dev # local API: http://localhost:8090/api/v1
-npm run build:local   # dev API: https://challenge.dev.codereport.com/api/v1
+npm run build:local   # hosted API: https://challenge.codereport.com/api/v1
 npm run build:dev     # deployed API: same-origin /api/v1
 npm run build:prod    # production API: same-origin /api/v1
 ```
